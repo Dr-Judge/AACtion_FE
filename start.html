@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <title>Dr.Judge · 시작하기</title>
+    <link rel="stylesheet" href="common.css" />
+    <link rel="stylesheet" href="auth.css" />
+  </head>
+  <body>
+    <div class="app auth auth--start">
+      <main class="auth__hero">
+        <img
+          class="auth__character"
+          src="./assets/character.png"
+          alt="Dr.Judge 캐릭터"
+          data-fallback="character"
+        />
+        <img
+          class="auth__wordmark"
+          src="./assets/wordmark.png"
+          alt="Dr.Judge"
+          data-fallback="wordmark"
+        />
+      </main>
+
+      <footer class="auth__cta">
+        <a href="./signup.html" class="btn btn--block btn--lg btn--primary">
+          회원가입
+        </a>
+        <div class="social" data-social="signup"></div>
+
+        <p class="auth__switch">
+          이미 계정이 있으신가요?
+          <a href="./login.html" class="auth__switch-link">로그인</a>
+        </p>
+      </footer>
+    </div>
+
+    <script src="common.js"></script>
+    <script src="api.js"></script>
+    <script src="social.js"></script>
+  </body>
+</html>
