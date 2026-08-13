@@ -71,6 +71,11 @@ body {
   justify-content: center;
 }
 
+/* hidden 속성은 어떤 클래스보다 우선합니다 */
+[hidden] {
+  display: none !important;
+}
+
 img {
   display: block;
   max-width: 100%;

@@ -65,6 +65,11 @@
 .signup__submit {
   margin-top: auto;
 }
+/* 마지막 요소와 버튼이 붙지 않도록 최소 간격 */
+#step2 .signup__submit,
+#step1 .signup__submit {
+  margin-top: 28px;
+}
 .signup__submit:disabled {
   background: var(--white);
   border: 1.5px solid var(--green-500);
@@ -87,7 +92,7 @@
 
 /* 회원가입에서는 약관 동의를 버튼 바로 위에 */
 .signup .agree {
-  margin: 8px 0 0;
+  margin: 24px 0 0;
 }
 
 /* ============================================
