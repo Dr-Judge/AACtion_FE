@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <title>Dr.Judge · 근거 계층 라벨</title>
+    <link rel="stylesheet" href="common.css" />
+    <link rel="stylesheet" href="tabs.css" />
+    <link rel="stylesheet" href="judge.css" />
+    <link rel="stylesheet" href="mypage.css" />
+    <link rel="stylesheet" href="result.css" />
+  </head>
+  <body>
+    <div class="app tabpage resultpage">
+      <header class="subhead">
+        <a href="./judge-result.html" class="subhead__back" aria-label="뒤로">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="m15 5-7 7 7 7" />
+          </svg>
+        </a>
+        <h1 class="subhead__title">근거 계층 라벨</h1>
+      </header>
+
+      <div class="scroll-area">
+        <section class="result2">
+          <h2 class="sect__title">근거 계층 라벨</h2>
+          <p class="sect__body">판정 결과의 신뢰도를 5단계로 구분하여 표시합니다.</p>
+
+          <div id="levelList" style="margin-top: 14px"></div>
+
+          <section class="sect">
+            <h2 class="sect__title">의료 상담</h2>
+            <div class="sect__card">
+              <p class="sect__body">
+                이 판정은 의료 진단·처방을 대체하지 않습니다. 증상이 있다면
+                반드시 전문가와 상담하세요.
+              </p>
+            </div>
+          </section>
+        </section>
+      </div>
+
+      <div class="pagecta">
+        <a href="./judge-result.html" class="btn btn--lg btn--primary">확인</a>
+      </div>
+    </div>
+
+    <script src="common.js"></script>
+    <script src="data.js"></script>
+    <script>
+      document.getElementById('levelList').innerHTML = EVIDENCE_LEVELS.map(
+        (l) => `
+        <div class="levelcard">
+          <p class="levelcard__name">${l.name}</p>
+          <p class="levelcard__trust">
+            신뢰도 <b>${l.trust}</b>
+            <span class="gauge"><span style="width:${l.score * 20}%"></span></span>
+          </p>
+          <p class="levelcard__desc">${l.desc}</p>
+          <p class="levelcard__ex">예: ${l.example}</p>
+        </div>`,
+      ).join('');
+    </script>
+  </body>
+</html>

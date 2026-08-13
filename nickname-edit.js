@@ -9,12 +9,18 @@
   const error = document.getElementById('nickError');
   const saveBtn = document.getElementById('saveBtn');
 
-  /* 기존 닉네임을 표시 */
-  input.value = ME.nickname;
+  const me = Store.current();
+  if (!me) {
+    location.replace('./login.html');
+    return;
+  }
+
+  /* 3-2. 기존 닉네임 표시 */
+  input.value = me.profile.nickname;
 
   const isValid = (v) => v.trim().length >= 2 && v.trim().length <= 10;
 
-  /* 3-3 — 2~10자일 때만 버튼 색이 바뀌고 눌립니다 */
+  /* 3-3. 2~10자일 때만 버튼 색이 바뀌고 눌립니다 */
   function update() {
     saveBtn.disabled = !isValid(input.value);
   }
@@ -25,7 +31,7 @@
     update();
   });
 
-  /* 3-4 — 조건을 못 채우고 벗어나면 빨간 테두리 + 문구 */
+  /* 3-4. 조건을 못 채우면 빨간 테두리 + 문구 */
   input.addEventListener('blur', () => {
     if (input.value.length === 0) return;
     const bad = !isValid(input.value);
@@ -35,9 +41,7 @@
 
   saveBtn.addEventListener('click', () => {
     if (saveBtn.disabled) return;
-
-    // TODO: 서버 저장 연동 지점 (PATCH /users/me)
-    ME.nickname = input.value.trim();
+    Store.updateProfile({ nickname: input.value.trim() });
     location.href = './profile-edit.html';
   });
 

@@ -174,14 +174,17 @@
   font-size: 11px;
   font-weight: 800;
 }
+.verdict--fit,
 .verdict--true {
   background: var(--green-100);
   color: #4f8a1c;
 }
+.verdict--vague,
 .verdict--partly {
   background: #fff4d6;
   color: #a2740a;
 }
+.verdict--unfit,
 .verdict--false {
   background: #ffe6e6;
   color: #c73a3a;

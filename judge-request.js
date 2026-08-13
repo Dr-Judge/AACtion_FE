@@ -31,6 +31,11 @@ function initJudgeRequest(o) {
   });
   limitLink.addEventListener('click', openModal);
 
+  // 모달의 확인을 누르면 한도 안내 화면에서 자세히 볼 수 있습니다
+  modal.querySelector('.modal__box').addEventListener('dblclick', () => {
+    location.href = './judge-limit.html';
+  });
+
   submitBtn.addEventListener('click', async () => {
     if (submitBtn.disabled) return;
 
@@ -48,6 +53,7 @@ function initJudgeRequest(o) {
       return;
     }
     if (res.code === 'DAILY_LIMIT') openModal();
+    else if (res.code === 'OCR_FAILED') location.href = './judge-fail.html';
     else alert(res.text);
   });
 

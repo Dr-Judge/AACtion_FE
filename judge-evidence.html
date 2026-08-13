@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <title>Dr.Judge · 근거 요약</title>
+    <link rel="stylesheet" href="common.css" />
+    <link rel="stylesheet" href="tabs.css" />
+    <link rel="stylesheet" href="judge.css" />
+    <link rel="stylesheet" href="mypage.css" />
+    <link rel="stylesheet" href="result.css" />
+  </head>
+  <body>
+    <div class="app tabpage resultpage">
+      <header class="subhead">
+        <a href="./judge-result.html" class="subhead__back" aria-label="뒤로">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="m15 5-7 7 7 7" />
+          </svg>
+        </a>
+        <h1 class="subhead__title">근거 요약</h1>
+      </header>
+
+      <div class="scroll-area">
+        <section class="result2">
+          <h2 class="sect__title">임상적 근거 있음</h2>
+          <p class="sect__body">이 주장에 대해 임상 연구 결과가 있습니다.</p>
+
+          <section class="sect">
+            <h2 class="sect__title">근거의 출처</h2>
+            <div class="sect__card">
+              <ul class="bullets">
+                <li>식약처 공식 기준</li>
+                <li>대한의학회 임상 가이드라인</li>
+              </ul>
+            </div>
+          </section>
+
+          <section class="sect">
+            <h2 class="sect__title">핵심 요약</h2>
+            <div class="sect__card">
+              <table class="rowtable">
+                <tbody>
+                  <tr><th>대상</th><td>성인</td></tr>
+                  <tr><th>효과</th><td>혈당 수치 개선</td></tr>
+                  <tr><th>조건</th><td>1일 1회, 식후 복용</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="sect">
+            <h2 class="sect__title">적용 범위</h2>
+            <div class="sect__card">
+              <p class="sect__body">
+                이 근거는 건강한 성인을 대상으로 한 연구에서 나온 결과입니다.
+                당뇨병이 있는 경우 담당 의료진과 상담 후 사용해주세요.
+              </p>
+            </div>
+          </section>
+
+          <section class="sect">
+            <div class="notice-card">
+              <h2 class="notice-card__title">주의 사항</h2>
+              <p>이 서비스는 의료 진단·처방을 대체하지 않습니다.</p>
+              <p>증상이 있다면 전문가와 상담하세요.</p>
+            </div>
+          </section>
+        </section>
+      </div>
+
+      <div class="pagecta">
+        <a href="./judge-result.html" class="btn btn--lg btn--primary">판정 결과로 돌아가기</a>
+      </div>
+    </div>
+
+    <script src="common.js"></script>
+    <script src="data.js"></script>
+  </body>
+</html>

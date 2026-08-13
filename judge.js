@@ -1,30 +1,41 @@
 /* ============================================
-   Dr.Judge — 판정 탭 스크립트
+   Dr.Judge — 판정 탭 (허브)
+   최근 판정은 로그인한 계정의 이력에서 읽습니다.
    ============================================ */
 
 (function () {
   const list = document.getElementById('judgeList');
+  const esc = (s) =>
+    String(s).replace(
+      /[&<>"']/g,
+      (c) =>
+        ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c],
+    );
 
-  /* 최근 판정 기록 */
-  function renderJudgements() {
-    list.innerHTML = JUDGEMENTS.map(
-      (j) => `
-      <li class="judgecard" data-id="${j.id}">
-        <div class="judgecard__top">
-          <span class="chip">${j.category}</span>
-          <span class="verdict verdict--${j.verdict}">${VERDICT_LABEL[j.verdict]}</span>
-          <span class="judgecard__time">${timeAgo(j.createdAt)}</span>
-        </div>
-        <h3 class="judgecard__title">${escapeHtml(j.title)}</h3>
-      </li>`,
-    ).join('');
+  const me = Store.current();
+  const history = me ? me.history.slice(0, 3) : [];
 
-    list.querySelectorAll('.judgecard').forEach((card) => {
-      card.addEventListener('click', () => {
-        location.href = `./judge-result.html?id=${encodeURIComponent(card.dataset.id)}`;
-      });
-    });
+  if (!history.length) {
+    list.innerHTML = `
+      <li class="empty">
+        <p class="empty__title">${me ? '아직 판정한 내역이 없어요' : '로그인하면 판정 이력이 쌓여요'}</p>
+        <p class="empty__desc">위에서 판정 방식을 골라 시작해 보세요.</p>
+      </li>`;
+    return;
   }
 
-  renderJudgements();
+  list.innerHTML = history
+    .map((h) => {
+      const s = HISTORY_STATUS[h.status] || HISTORY_STATUS.vague;
+      return `
+      <li class="judgecard">
+        <div class="judgecard__top">
+          <span class="chip">${esc(h.category)}</span>
+          <span class="verdict verdict--${h.status}">${s.mark} ${s.label}</span>
+          <span class="judgecard__time">${esc(h.at)}</span>
+        </div>
+        <h3 class="judgecard__title">${esc(h.title)}</h3>
+      </li>`;
+    })
+    .join('');
 })();
