@@ -36,12 +36,25 @@
                 </svg>
               </button>
             </li>
+            <li>
+              <button type="button" class="settingmenu__item settingmenu__item--danger" id="withdrawBtn">
+                회원탈퇴
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12" />
+                </svg>
+              </button>
+            </li>
           </ul>
         </div>
       </header>
 
       <section class="profile2">
-        <span class="profile2__avatar" id="avatar"></span>
+        <img
+          class="profile2__avatar"
+          src="./assets/character.png"
+          alt=""
+          data-fallback="character"
+        />
         <div class="profile2__info">
           <p class="profile2__name" id="myNickname">마라탕후루이비똥</p>
           <a href="./profile-edit.html" class="profile2__edit">내 정보 수정</a>
@@ -82,6 +95,7 @@
 
           <div class="statrow" id="statRow"></div>
           <ul class="historylist" id="historyList"></ul>
+          <button type="button" class="morebtn" id="historyMore" hidden>더 보기</button>
         </section>
 
         <!-- 나의 공유 카드 -->
@@ -91,10 +105,43 @@
             <button type="button" class="mini-select" id="cardSort">최신순 ▾</button>
           </div>
           <ul class="mycards" id="myCards"></ul>
+          <button type="button" class="morebtn" id="cardsMore" hidden>더 보기</button>
         </section>
       </div>
 
       <nav class="tabbar" data-active="my"></nav>
+
+      <!-- 공유 링크 회수 확인 -->
+      <div class="confirm" id="revokeConfirm" hidden>
+        <div class="confirm__box" role="alertdialog" aria-labelledby="revokeTitle">
+          <h2 class="confirm__title" id="revokeTitle">공유를 중지할까요?</h2>
+          <p class="confirm__desc">
+            이미 공유한 링크로는 더 이상 볼 수 없게 됩니다.
+            판정 결과는 내 이력에 그대로 남아요.
+          </p>
+          <p class="form-alert" id="revokeAlert" hidden></p>
+          <div class="confirm__actions">
+            <button type="button" class="confirm__btn confirm__btn--cancel" id="revokeCancel">취소</button>
+            <button type="button" class="confirm__btn confirm__btn--danger" id="revokeOk">공유 중지</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 회원탈퇴 확인 -->
+      <div class="confirm" id="withdrawConfirm" hidden>
+        <div class="confirm__box" role="alertdialog" aria-labelledby="withdrawTitle">
+          <h2 class="confirm__title" id="withdrawTitle">정말 탈퇴할까요?</h2>
+          <p class="confirm__desc">
+            판정 이력, 포인트, 공유한 카드가 모두 사라지고
+            <b>되돌릴 수 없어요.</b>
+          </p>
+          <p class="form-alert" id="withdrawAlert" hidden></p>
+          <div class="confirm__actions">
+            <button type="button" class="confirm__btn confirm__btn--cancel" id="withdrawCancel">취소</button>
+            <button type="button" class="confirm__btn confirm__btn--danger" id="withdrawOk">탈퇴하기</button>
+          </div>
+        </div>
+      </div>
 
       <!-- 로그아웃 확인 -->
       <div class="confirm" id="logoutConfirm" hidden>

@@ -256,3 +256,33 @@ const BRIEFING_TODAY = {
     ['유저 관심 콘텐츠', 'TOP 3'],
   ],
 };
+
+
+/* ============================================
+   온보딩 선택지 — 화면 문구 ↔ 서버 값
+   서버 enum 이 확정되면 value 만 고치면 됩니다.
+   ============================================ */
+const INTEREST_OPTIONS = [
+  { label: '다이어트', value: 'DIET' },
+  { label: '미용/화장품', value: 'COSMETICS' },
+  { label: '건강/면역', value: 'NUTRITION_SUPPLEMENT' },
+  { label: '기타', value: 'ETC' },
+];
+
+const AGE_OPTIONS = [
+  { label: '10~24세', value: 'AGE_10S' },
+  { label: '25~39세', value: 'AGE_20S' },
+  { label: '40~59세', value: 'AGE_40S' },
+  { label: '60세 이상', value: 'AGE_60S' },
+];
+
+const GENDER_OPTIONS = [
+  { label: '여성', value: 'FEMALE' },
+  { label: '남성', value: 'MALE' },
+  { label: '기타', value: 'OTHER' },
+];
+
+const labelToValue = (list, label) =>
+  (list.find((o) => o.label === label) || {}).value || null;
+const valueToLabel = (list, value) =>
+  (list.find((o) => o.value === value) || {}).label || value;

@@ -153,16 +153,19 @@
 }
 .briefing__char {
   position: absolute;
-  right: 6px;
-  bottom: 0;
-  width: 126px;
+  right: -6px;
+  bottom: -8px;
+  width: 148px;
   height: auto;
   pointer-events: none;
+  filter: drop-shadow(0 6px 12px rgba(22, 24, 26, 0.16));
 }
 .briefing__slide .img-placeholder.character {
   position: absolute;
   right: 12px;
   bottom: 14px;
+  width: 132px;
+  height: 122px;
 }
 
 .briefing__dots {
@@ -458,4 +461,10 @@
   font-size: 12px;
   font-weight: 800;
   white-space: nowrap;
+}
+
+.feed__more {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--gray-500);
 }

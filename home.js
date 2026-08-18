@@ -1,7 +1,7 @@
 /* ============================================
    Dr.Judge — 메인(홈) 화면 스크립트
    spec: 1 검색 바 / 2 카테고리 선택 바 / 3 공유 피드 / 4 데일리 브리핑
-   데이터: data.js · 피드 목록: feedsection.js
+   데이터: data.js
    ============================================ */
 
 /* ---------- 4. 데일리 브리핑 캐러셀 ---------- */
@@ -10,20 +10,22 @@ const dots = document.getElementById('briefingDots');
 let slideIndex = 0;
 let autoTimer = null;
 
+let slides = BRIEFINGS; // 서버에서 받아오면 교체됩니다
+
 function renderBriefings() {
-  track.innerHTML = BRIEFINGS.map(
+  track.innerHTML = slides.map(
     (b) => `
     <button class="briefing__slide" data-id="${b.id}" type="button">
       <span class="briefing__badge">DAILY BRIEFING</span>
       <h3 class="briefing__title">${b.title}</h3>
       <p class="briefing__desc">${b.desc}</p>
       <span class="briefing__cta">${b.cta} <span aria-hidden="true">›</span></span>
-      <img class="briefing__char" src="./assets/character.png" alt="Dr.Judge" data-fallback="character" />
+      <img class="briefing__char" src="./assets/character-head.png" alt="Dr.Judge" data-fallback="character" />
     </button>
   `,
   ).join('');
 
-  dots.innerHTML = BRIEFINGS.map(
+  dots.innerHTML = slides.map(
     (_, i) => `<span class="${i === 0 ? 'is-active' : ''}"></span>`,
   ).join('');
 
@@ -31,12 +33,12 @@ function renderBriefings() {
 
   // 터치 시 데일리 브리핑 상세로 이동
   track.querySelectorAll('.briefing__slide').forEach((el) => {
-    el.addEventListener('click', () => goBriefingDetail(el.dataset.id));
+    el.addEventListener('click', () => goBriefingDetail());
   });
 }
 
-function goBriefingDetail(id) {
-  location.href = `./briefing.html?id=${encodeURIComponent(id)}`;
+function goBriefingDetail() {
+  location.href = './briefing.html';
 }
 
 function syncDots() {
@@ -50,8 +52,9 @@ function syncDots() {
 
 function startAuto() {
   stopAuto();
+  if (slides.length < 2) return; // 카드가 하나면 넘길 필요 없음
   autoTimer = setInterval(() => {
-    slideIndex = (slideIndex + 1) % BRIEFINGS.length;
+    slideIndex = (slideIndex + 1) % slides.length;
     track.scrollTo({ left: slideIndex * track.clientWidth, behavior: 'smooth' });
   }, 4500);
 }
@@ -70,8 +73,78 @@ const searchClear = document.getElementById('searchClear');
 const searchIcon = document.getElementById('searchIcon');
 let keyword = '';
 
-/* ---------- 2·3. 카테고리 · 공유 피드 ---------- */
-const feedSection = initFeedSection({ getKeyword: () => keyword });
+/* ---------- 공유 피드 (서버에서 최신 몇 개만) ---------- */
+const homeFeed = document.getElementById('homeFeed');
+let feedItems = [];
+
+const esc = (s) =>
+  String(s).replace(
+    /[&<>"']/g,
+    (c) =>
+      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c],
+  );
+
+function highlight(text) {
+  const safe = esc(text);
+  if (!keyword) return safe;
+  const re = new RegExp(keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+  return safe.replace(re, (m) => `<span class="hl">${m}</span>`);
+}
+
+function visibleFeeds() {
+  if (!keyword) return feedItems;
+  const k = keyword.toLowerCase();
+  const hit = (f) => (f.summary || '').toLowerCase().includes(k);
+  return [...feedItems.filter(hit), ...feedItems.filter((f) => !hit(f))];
+}
+
+function renderFeed() {
+  const list = visibleFeeds();
+  const k = keyword.toLowerCase();
+  const isHit = (f) => keyword && (f.summary || '').toLowerCase().includes(k);
+
+  homeFeed.innerHTML = list.length
+    ? list
+        .map(
+          (c) => `
+    <li class="pcard ${isHit(c) ? 'is-hit' : ''}" data-id="${esc(c.id)}">
+      <div class="pcard__top">
+        <span class="pcard__cat">${esc(c.levelLabel)}</span>
+        <span class="badge-done">판정 완료</span>
+      </div>
+      <h3 class="pcard__title">“${highlight(c.summary)}”</h3>
+      <div class="pcard__foot">
+        <span class="pcard__author">@${esc(c.author)}</span>
+        <span class="pcard__like">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round">
+            <path d="M12 20s-7.2-4.4-7.2-9.3A4.2 4.2 0 0 1 12 8.1a4.2 4.2 0 0 1 7.2 2.6C19.2 15.6 12 20 12 20Z" />
+          </svg>
+          ${c.likes}
+        </span>
+      </div>
+    </li>`,
+        )
+        .join('')
+    : `<li class="empty"><p class="empty__title">아직 공유된 판정이 없어요</p><p class="empty__desc">판정 결과를 피드에 게시하면 여기에 보여요.</p></li>`;
+
+  homeFeed.querySelectorAll('.pcard').forEach((el) => {
+    el.addEventListener('click', () => {
+      const item = feedItems.find((i) => i.id === el.dataset.id);
+      if (item) Store.saveResult({ ...item, id: 'post:' + item.id });
+      location.href = `./feed-detail.html?id=${encodeURIComponent(el.dataset.id)}`;
+    });
+  });
+}
+
+async function loadFeed() {
+  const res = await API.getFeedPosts({ sort: 'recent', page: 1, size: 5 });
+  if (!res.ok) {
+    homeFeed.innerHTML = `<li class="empty"><p class="empty__title">피드를 불러오지 못했어요</p><p class="empty__desc">${esc(res.text)}</p></li>`;
+    return;
+  }
+  feedItems = res.data.items;
+  renderFeed();
+}
 
 // 돋보기 아이콘 터치 시 키보드가 올라옴 (input focus)
 searchIcon.addEventListener('click', () => searchInput.focus());
@@ -84,17 +157,34 @@ searchInput.addEventListener('blur', () =>
 searchInput.addEventListener('input', () => {
   keyword = searchInput.value.trim();
   searchClear.hidden = keyword.length === 0;
-  feedSection.render();
+  renderFeed();
 });
 searchClear.addEventListener('click', () => {
   searchInput.value = '';
   keyword = '';
   searchClear.hidden = true;
-  feedSection.render();
+  renderFeed();
   searchInput.focus();
 });
+
+/* ---------- 오늘의 브리핑 ---------- */
+async function loadBriefing() {
+  const res = await API.getTodayBriefing();
+  if (!res.ok || !res.data.items.length) return; // 실패하면 기본 배너 유지
+
+  slides = res.data.items.map((b) => ({
+    id: b.id,
+    title: b.title,
+    desc: b.summary || b.levelLabel,
+    cta: '브리핑 확인하기',
+  }));
+  renderBriefings();
+  startAuto();
+}
 
 /* ---------- init ---------- */
 renderBriefings();
 startAuto();
+loadBriefing();
+loadFeed();
 window.addEventListener('resize', syncDots);

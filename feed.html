@@ -10,6 +10,7 @@
     <link rel="stylesheet" href="common.css" />
     <link rel="stylesheet" href="tabs.css" />
     <link rel="stylesheet" href="feed.css" />
+    <link rel="stylesheet" href="mypage.css" />
   </head>
   <body>
     <div class="app tabpage feedpage">
@@ -30,6 +31,9 @@
 
       <div class="scroll-area">
         <ul class="cardlist" id="cardList"></ul>
+        <div style="padding: 0 var(--page-x) 24px">
+          <button type="button" class="morebtn" id="feedMore" hidden>더 보기</button>
+        </div>
       </div>
 
       <nav class="tabbar" data-active="feed"></nav>
@@ -38,6 +42,7 @@
     <script src="common.js"></script>
     <script src="store.js"></script>
     <script src="data.js"></script>
+    <script src="api.js"></script>
     <script src="feed.js"></script>
   </body>
 </html>

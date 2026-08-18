@@ -4,6 +4,8 @@
    ============================================ */
 
 (function () {
+  if (!requireLogin()) return;
+
   const box = document.getElementById('nickBox');
   const input = document.getElementById('nickInput');
   const error = document.getElementById('nickError');
@@ -20,9 +22,9 @@
 
   const isValid = (v) => v.trim().length >= 2 && v.trim().length <= 10;
 
-  /* 3-3. 2~10자일 때만 버튼 색이 바뀌고 눌립니다 */
+  /* 3-3. 2~10자일 때만 버튼 색이 바뀝니다 (버튼은 항상 눌립니다) */
   function update() {
-    saveBtn.disabled = !isValid(input.value);
+    saveBtn.classList.toggle('is-ready', isValid(input.value));
   }
 
   input.addEventListener('input', () => {
@@ -40,7 +42,12 @@
   });
 
   saveBtn.addEventListener('click', () => {
-    if (saveBtn.disabled) return;
+    // 3-4. 조건을 못 채웠으면 빨간 테두리 + 문구만 띄우고 넘어가지 않습니다
+    if (!isValid(input.value)) {
+      box.classList.add('is-error');
+      error.hidden = false;
+      return;
+    }
     Store.updateProfile({ nickname: input.value.trim() });
     location.href = './profile-edit.html';
   });

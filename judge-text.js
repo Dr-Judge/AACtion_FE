@@ -1,5 +1,7 @@
 /* Dr.Judge — 텍스트로 판정 요청 */
 (function () {
+  if (!requireLogin()) return;
+
   const input = document.getElementById('claimInput');
   const count = document.getElementById('claimCount');
 

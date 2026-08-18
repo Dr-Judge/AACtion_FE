@@ -26,13 +26,19 @@
     setLoading(false);
 
     if (res.ok) {
-      location.href = './home.html';
+      // 로그인이 풀려서 밀려온 경우 원래 보던 화면으로 돌려보냅니다
+      const next = new URLSearchParams(location.search).get('next');
+      location.href = next && /^[\w.-]+\.html/.test(next) ? `./${next}` : './home.html';
       return;
     }
 
     // 서버가 알려준 칸에 오류 표시 (아이디 없음 / 비밀번호 불일치 등)
-    if (res.field) {
+    if (res.field || res.fields) {
       form.applyApiError(res);
+      if (res.fields) {
+        alertEl.textContent = res.text;
+        alertEl.hidden = false;
+      }
     } else {
       alertEl.textContent = res.text;
       alertEl.hidden = false;
@@ -40,7 +46,7 @@
   });
 
   function setLoading(on) {
-    submitBtn.disabled = on || submitBtn.disabled;
+    submitBtn.disabled = on; // 통신 중에만 잠급니다
     submitBtn.textContent = on ? '로그인 중…' : '로그인';
     formEl.classList.toggle('is-loading', on);
     if (!on) form.updateSubmit();

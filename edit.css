@@ -17,64 +17,11 @@
   width: 96px;
   height: 96px;
   border-radius: 50%;
-  background: var(--gray-200) center / cover no-repeat;
-}
-.avatarbox__cam {
-  position: absolute;
-  top: 92px;
-  left: 50%;
-  margin-left: 20px;
-  width: 28px;
-  height: 28px;
-  display: grid;
-  place-items: center;
-  border: 2px solid var(--white);
-  border-radius: 50%;
-  background: var(--green-500);
-  color: var(--white);
-}
-.avatarbox__cam svg {
-  width: 15px;
-  height: 15px;
+  object-fit: cover;
+  object-position: top center;
+  background: var(--green-050);
 }
 
-/* 2-1. 사진 보관함 / 파일 선택 팝업 */
-.photomenu {
-  position: absolute;
-  top: 96px;
-  left: 50%;
-  transform: translateX(-100%);
-  margin-left: 12px;
-  z-index: 30;
-  width: 158px;
-  padding: 4px;
-  border-radius: 10px;
-  background: var(--white);
-  box-shadow: var(--shadow-float);
-}
-.photomenu__item {
-  width: 100%;
-  height: 40px;
-  padding: 0 10px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  border-radius: 7px;
-  font-size: 13px;
-  color: var(--gray-900);
-  text-align: left;
-}
-.photomenu__item + .photomenu__item {
-  border-top: 1px solid var(--gray-100);
-}
-.photomenu__item:active {
-  background: var(--gray-100);
-}
-.photomenu__item svg {
-  width: 18px;
-  height: 18px;
-  color: var(--gray-700);
-}
 
 /* ---------- 정보 목록 ---------- */
 .fieldlist {
@@ -168,18 +115,20 @@
   padding: 0 var(--page-x) 18px;
 }
 /* 3-3 — 조건 미충족이면 버튼 색이 바뀌지 않음 */
-.nick__submit:disabled {
+.nick__submit {
   background: var(--white);
   border: 1.5px solid var(--green-500);
   color: var(--green-600);
-  opacity: 0.5;
+  opacity: 0.6;
 }
-.nick__submit:not(:disabled) {
+.nick__submit.is-ready,
+.nick__submit:not(:disabled).is-ready {
   background: var(--green-500);
-  border: 1.5px solid var(--green-500);
   color: var(--white);
+  opacity: 1;
 }
-.nick__submit:not(:disabled):active {
+.nick__submit:active {
   background: var(--green-600);
   border-color: var(--green-600);
+  color: var(--white);
 }

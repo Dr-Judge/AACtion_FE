@@ -9,6 +9,9 @@
  */
 function initImageFallback(root = document) {
   root.querySelectorAll('img[data-fallback]').forEach((img) => {
+    if (img.dataset.watched) return;
+    img.dataset.watched = '1';
+
     const replace = () => {
       if (img.dataset.replaced) return;
       img.dataset.replaced = '1';
@@ -17,8 +20,24 @@ function initImageFallback(root = document) {
       box.textContent = img.alt || 'image';
       img.replaceWith(box);
     };
+
+    // 진짜 실패했을 때만 자리표시자로 바꿉니다.
     img.addEventListener('error', replace, { once: true });
-    if (img.complete && img.naturalWidth === 0) replace();
+    img.addEventListener(
+      'load',
+      () => {
+        if (img.naturalWidth === 0) replace();
+      },
+      { once: true },
+    );
+
+    // 아직 내려받는 중인 이미지를 실패로 오해하지 않도록,
+    // 페이지 로딩이 모두 끝난 뒤에 한 번 더 확인합니다.
+    const settle = () => {
+      if (img.complete && img.naturalWidth === 0) replace();
+    };
+    if (document.readyState === 'complete') setTimeout(settle, 400);
+    else window.addEventListener('load', settle, { once: true });
   });
 }
 
@@ -99,7 +118,49 @@ function timeAgo(date) {
   return `${Math.floor(diff / 2592000)}개월 전`;
 }
 
+/* ============================================
+   로그인 상태 관리
+   ============================================ */
+
+/** 로그인이 필요한 화면에서 부릅니다. 안 되어 있으면 로그인으로 보냅니다. */
+function requireLogin() {
+  if (typeof Store === 'undefined' || Store.isLoggedIn()) return true;
+  const next = location.pathname.split('/').pop() + location.search;
+  location.replace(`./login.html?next=${encodeURIComponent(next)}`);
+  return false;
+}
+
+/* 통신 중 로그인이 풀리면 알려주고 로그인 화면으로 보냅니다 */
+window.addEventListener('drjudge:session-expired', () => {
+  const here = location.pathname.split('/').pop();
+  if (here === 'login.html' || here === 'start.html' || here === 'share.html') return;
+
+  alert('로그인이 만료됐어요. 다시 로그인해 주세요.');
+  location.replace(
+    `./login.html?next=${encodeURIComponent(here + location.search)}`,
+  );
+});
+
+/* ============================================
+   네트워크 끊김 안내
+   ============================================ */
+function initOfflineBanner() {
+  const bar = document.createElement('div');
+  bar.className = 'offlinebar';
+  bar.textContent = '인터넷 연결이 끊겼어요';
+  bar.hidden = true;
+  document.body.appendChild(bar);
+
+  const sync = () => {
+    bar.hidden = navigator.onLine !== false;
+  };
+  window.addEventListener('online', sync);
+  window.addEventListener('offline', sync);
+  sync();
+}
+
 document.addEventListener('DOMContentLoaded', () => {
+  initOfflineBanner();
   initImageFallback();
   renderTabbar();
 });

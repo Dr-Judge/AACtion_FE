@@ -440,3 +440,30 @@
   background: var(--green-500);
   color: var(--white);
 }
+
+/* ---------- 판정 중 ---------- */
+.result2.is-waiting .tagcard,
+.result2.is-waiting .sect {
+  display: none;
+}
+.result2.is-waiting .result2__claim {
+  text-align: center;
+  color: var(--gray-500);
+  font-weight: 600;
+}
+.result2.is-waiting .result2__claim::after {
+  content: '';
+  display: block;
+  width: 28px;
+  height: 28px;
+  margin: 16px auto 4px;
+  border: 3px solid var(--green-100);
+  border-top-color: var(--green-500);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

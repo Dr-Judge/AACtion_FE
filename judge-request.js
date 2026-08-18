@@ -25,14 +25,15 @@ function initJudgeRequest(o) {
     modal.hidden = true;
   }
 
-  modalOk.addEventListener('click', closeModal);
+  modalOk.addEventListener('click', () => {
+    closeModal();
+    location.href = './judge-limit.html';
+  });
   modal.addEventListener('click', (e) => {
     if (e.target === modal) closeModal();
   });
-  limitLink.addEventListener('click', openModal);
-
-  // 모달의 확인을 누르면 한도 안내 화면에서 자세히 볼 수 있습니다
-  modal.querySelector('.modal__box').addEventListener('dblclick', () => {
+  // 링크는 안내 화면으로, 실제로 한도에 걸렸을 때는 모달로 알립니다
+  limitLink.addEventListener('click', () => {
     location.href = './judge-limit.html';
   });
 
@@ -49,7 +50,8 @@ function initJudgeRequest(o) {
     update();
 
     if (res.ok) {
-      location.href = `./judge-result.html?id=${encodeURIComponent(res.data.id)}`;
+      const id = res.data.id || res.data.judgmentId;
+      location.href = `./judge-result.html?id=${encodeURIComponent(id)}`;
       return;
     }
     if (res.code === 'DAILY_LIMIT') openModal();

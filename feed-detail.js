@@ -5,7 +5,20 @@
 (function () {
   const box = document.getElementById('detail');
   const id = new URLSearchParams(location.search).get('id');
-  const card = FEED_CARDS.find((c) => c.id === id) || FEED_CARDS[1];
+
+  // 목록에서 넘겨준 내용이 있으면 그걸 씁니다 (게시물 상세 API 가 아직 없어서)
+  const passed = Store.getResult ? Store.getResult('post:' + id) : null;
+  const card = passed
+    ? {
+        id: passed.id,
+        category: passed.levelLabel || '',
+        title: passed.summary || '',
+        desc: '',
+        result: passed.result || 'hold',
+        author: passed.author || '',
+        likes: passed.likes || 0,
+      }
+    : FEED_CARDS.find((c) => c.id === id) || FEED_CARDS[1];
 
   const esc = (s) =>
     String(s).replace(

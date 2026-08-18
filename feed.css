@@ -332,3 +332,19 @@
   color: var(--gray-700);
   line-height: 1.6;
 }
+
+/* 좋아요 버튼 */
+.pcard__like {
+  padding: 4px 2px;
+  transition: color 0.15s var(--ease);
+}
+.pcard__like.is-liked {
+  color: var(--like);
+}
+.pcard__like.is-liked svg {
+  fill: var(--like);
+  stroke: var(--like);
+}
+.pcard__like:disabled {
+  opacity: 0.5;
+}

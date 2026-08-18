@@ -34,14 +34,14 @@ const RULES = {
     invalid: '아이디를 다시 확인해 주세요.',
   },
   password: {
-    test: (v) => v.length >= 8 && /[A-Za-z]/.test(v) && /[0-9]/.test(v),
+    test: (v) => v.length >= 10,
     empty: '비밀번호를 다시 확인해 주세요.',
     invalid: '비밀번호를 다시 확인해 주세요.',
   },
   passwordConfirm: {
     test: (v, form) => v.length > 0 && v === form.password,
     empty: '비밀번호를 다시 확인해 주세요.',
-    invalid: '비밀번호가 일치하지 않습니다.',
+    invalid: '비밀번호를 다시 확인해 주세요.',
   },
 };
 
@@ -49,7 +49,7 @@ const RULES = {
  * 폼 하나를 관리합니다.
  * @param {HTMLFormElement|HTMLElement} root  .field 들을 담고 있는 요소
  * @param {object} options
- * @param {HTMLButtonElement} options.submitBtn  전부 유효할 때만 활성화할 버튼
+ * @param {HTMLButtonElement} options.submitBtn  제출 버튼 (잠그지 않고 색만 바뀝니다)
  * @param {(values) => boolean} [options.canSubmit]  추가 조건 (예: 약관 동의)
  * @param {() => void} [options.onChange]
  */
@@ -120,12 +120,16 @@ function createForm(root, options = {}) {
     return fields.every(isValid);
   }
 
-  /** 하나라도 비었거나 잘못되면 버튼이 눌러지지 않음 */
+  /**
+   * 버튼은 항상 누를 수 있습니다.
+   * 대신 눌렀을 때 validateAll() 로 막고 각 칸에 오류를 표시합니다.
+   * (모두 유효할 때는 is-ready 를 붙여 색만 바뀝니다)
+   */
   function updateSubmit() {
     if (!submitBtn) return;
-    const blocked = fields.some((f) => f.classList.contains('is-error'));
     const extra = options.canSubmit ? options.canSubmit(values()) : true;
-    submitBtn.disabled = !allValid() || blocked || !extra;
+    submitBtn.disabled = false;
+    submitBtn.classList.toggle('is-ready', allValid() && extra);
   }
 
   /* ---------- 이벤트 ---------- */
@@ -134,8 +138,8 @@ function createForm(root, options = {}) {
 
     input.addEventListener('focus', () => {
       field.classList.add('is-focused');
-      field.classList.remove('is-error'); // 다시 입력하면 빨간 표시 해제
-      updateSubmit();
+      // 빨간 표시는 값을 고칠 때(input) 사라집니다.
+      // 여기서 지우면 제출 직후 자동 포커스로 오류가 바로 없어져 버립니다.
     });
 
     input.addEventListener('blur', () => {
@@ -172,9 +176,14 @@ function createForm(root, options = {}) {
       if (bad.length) inputOf(bad[0]).focus();
       return bad.length === 0;
     },
-    /** API 응답({ok:false, field, text})을 화면 오류로 반영 */
+    /**
+     * API 응답을 화면 오류로 반영합니다.
+     *   { field: 'userId' }              → 한 칸에 표시
+     *   { fields: ['userId','password'] } → 여러 칸에 동시에 표시
+     */
     applyApiError(res) {
-      if (res.field) showError(res.field, res.text);
+      const keys = res.fields || (res.field ? [res.field] : []);
+      keys.forEach((k) => showError(k, res.text));
       return res.text;
     },
   };

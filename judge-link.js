@@ -1,5 +1,7 @@
 /* Dr.Judge — 링크로 판정 요청 */
 (function () {
+  if (!requireLogin()) return;
+
   const input = document.getElementById('linkInput');
   const count = document.getElementById('linkCount');
 
