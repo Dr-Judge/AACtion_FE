@@ -9,24 +9,48 @@
 
 const API = (() => {
   /* ---------- 서버 주소 ----------
-     프론트는 Live Server(5500) 로 열고, 백엔드는 8080 에서 돕니다.
-     배포하면 아래 SERVER_URL 만 실제 주소로 바꾸면 됩니다. */
-  const SERVER_URL = ''; // 예: 'https://api.drjudge.com'
+     배포된 백엔드입니다. 이 도메인은 CORS 에 drjudge.netlify.app 과
+     localhost:3000 이 이미 열려 있습니다 (2026.08.19 확인).
+     주소가 바뀌면 이 한 줄만 고치면 됩니다.
 
-  /* serve.js(로컬 개발 서버)로 열면 화면과 /api 가 같은 주소라서
+     주의: serve.py/serve.js 로 열면 이 값보다 '같은 주소(/api)'가 우선입니다.
+           즉 로컬 개발은 예전처럼 내 컴퓨터의 백엔드를 계속 씁니다.
+           배포 서버로 붙여 보려면 http://localhost:3000/start.html?api=server */
+  const SERVER_URL = 'https://13-124-27-143.sslip.io';
+
+  /* 내 컴퓨터에서 여는 중인지 — 주소 결정과 오류 문구에 씁니다 */
+  const DEV_HOST = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
+
+  /* 로컬에서 열었더라도 배포 서버에 붙여 보고 싶을 때 씁니다 — ?api=server */
+  const FORCE_SERVER = /[?&]api=server\b/.test(location.search);
+
+  /* serve.js/serve.py(로컬 개발 서버)로 열면 화면과 /api 가 같은 주소라서
      주소를 따로 붙일 필요가 없습니다. 이때는 CORS 자체가 생기지 않습니다.
-     serve.js 가 HTML 에 표시를 심어 주므로 포트가 몇이든 알아서 잡힙니다. */
+     서버가 HTML 에 표시를 심어 주므로 포트가 몇이든 알아서 잡힙니다. */
   const SAME_ORIGIN =
-    window.__SAME_ORIGIN_API === true || /[?&]api=same\b/.test(location.search);
+    !FORCE_SERVER &&
+    (window.__SAME_ORIGIN_API === true || /[?&]api=same\b/.test(location.search));
 
+  /* ---------- API 주소 결정 ----------
+     위에서부터 먼저 맞는 것이 적용됩니다.
+
+     1) serve.py/serve.js 로 열었으면  → /api  (같은 주소 = 내 컴퓨터 백엔드)
+     2) SERVER_URL 이 적혀 있으면      → 그 주소  ← 지금은 배포 서버
+     3) localhost 인데 1·2 가 아니면   → http://localhost:8080/api
+     4) 그 밖                          → /api  (_redirects 프록시용 대비)
+
+     예전에는 배포 도메인에서 'http://<사이트주소>:8080/api' 를 불렀습니다.
+     그런 서버가 없을뿐더러 https 페이지에서 http 를 부르는 것이라
+     브라우저가 요청 자체를 막았습니다 — Netlify 에서 가입이 안 되던 원인입니다. */
   const BASE_URL = SAME_ORIGIN
     ? '/api'
-    : (SERVER_URL || 'http://' + (location.hostname || 'localhost') + ':8080') + '/api';
+    : SERVER_URL
+      ? SERVER_URL.replace(/\/$/, '') + '/api'
+      : DEV_HOST
+        ? 'http://' + location.hostname + ':8080/api'
+        : '/api';
 
   const TIMEOUT = 8000;
-
-  /* 내 컴퓨터에서 여는 중인지 — 오류 문구를 개발용으로 바꿀 때 씁니다 */
-  const DEV_HOST = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
 
   /* ---------- 어떤 기능을 실제 서버에 붙일지 ----------
      서버에 만들어진 것부터 하나씩 true 로 바꾸면 됩니다.
