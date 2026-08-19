@@ -10,15 +10,8 @@
         ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c],
     );
 
-  const ICON = {
-    check:
-      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5" /></svg>',
-    bang: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M11 6h2v8h-2zM11 16h2v2h-2z" /></svg>',
-    question:
-      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M9.2 9a2.8 2.8 0 1 1 3.6 2.7c-.6.2-.8.7-.8 1.3v.6" /><path d="M12 17.2v.1" /></svg>',
-  };
-  const TONE = { expert: 'ok', lack: 'warn', hold: 'hold' };
-  const MARK = { expert: 'check', lack: 'bang', hold: 'question' };
+  /* 판정 등급 정보는 data.js 한 곳에서 가져옵니다 (아이콘·안내 문구·이름) */
+  const lvOf = (key) => (typeof levelOf === 'function' ? levelOf(key) : null) || null;
 
   const list = document.getElementById('cardList');
   const pills = document.getElementById('sortPills');
@@ -41,18 +34,23 @@
     list.innerHTML = items.length
       ? items
           .map((c) => {
-            const tone = TONE[c.result] || 'hold';
+            const lv = lvOf(c.result);
+            const title = c.title || c.summary || '';
+            // 카테고리가 없으면(6.5 미제공) 올린 시각으로 대신 채웁니다
+            const top = c.category || fmt(c.createdAt);
             return `
       <li class="pcard" data-id="${esc(c.id)}">
         <div class="pcard__top">
-          <span class="pcard__cat">${esc(fmt(c.createdAt))}</span>
+          <span class="pcard__cat">${esc(top)}</span>
           <span class="badge-done">판정 완료</span>
         </div>
-        <h2 class="pcard__title">“${esc(c.summary)}”</h2>
+        <h2 class="pcard__title">“${esc(title)}”</h2>
+        ${c.desc ? `<p class="pcard__desc">${esc(c.desc)}</p>` : ''}
 
-        <div class="verdict-row verdict-row--${tone}">
-          <span class="verdict-row__icon">${ICON[MARK[c.result] || 'question']}</span>
-          <span class="verdict-row__label">${esc(c.levelLabel)}</span>
+        <div class="verdict-row">
+          <span class="verdict-row__icon">${esc((lv && lv.icon) || '?')}</span>
+          <span class="verdict-row__label">${esc(c.levelLabel || (lv && lv.name) || '')}</span>
+          <span class="verdict-row__hint">${esc((lv && lv.action) || '')}</span>
         </div>
 
         <div class="pcard__foot">

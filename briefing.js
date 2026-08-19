@@ -28,6 +28,25 @@
   let items = [];
   let current = '전체';
 
+  /* ---------- 날짜 이동 (4.1 오늘 / 4.2 특정 날짜) ---------- */
+  const iso = (d) => {
+    const t = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
+    return t.toISOString().slice(0, 10);
+  };
+  const TODAY = iso(new Date());
+  const shift = (isoStr, days) => {
+    const d = new Date(isoStr + 'T00:00:00');
+    d.setDate(d.getDate() + days);
+    return iso(d);
+  };
+
+  const prevBtn = document.getElementById('prevDay');
+  const nextBtn = document.getElementById('nextDay');
+
+  // ?date=YYYY-MM-DD 로 들어오면 그 날짜부터 봅니다
+  const asked = new URLSearchParams(location.search).get('date');
+  let viewDate = /^\d{4}-\d{2}-\d{2}$/.test(asked || '') && asked <= TODAY ? asked : TODAY;
+
   /* ---------- 카테고리 칩 ---------- */
   function renderChips() {
     const cats = ['전체', ...new Set(items.map((i) => i.category).filter(Boolean))];
@@ -52,7 +71,10 @@
   /* ---------- 요약 ---------- */
   function renderSummary() {
     if (!items.length) {
-      summaryText.textContent = '오늘은 새로 도착한 브리핑이 없어요.';
+      summaryText.textContent =
+        viewDate === TODAY
+          ? '오늘은 새로 도착한 브리핑이 없어요.'
+          : '이 날은 브리핑이 없어요.';
       summaryStats.innerHTML = '';
       return;
     }
@@ -99,6 +121,9 @@
 
     list.querySelectorAll('.bitem').forEach((el) => {
       el.addEventListener('click', () => {
+        // 오픈율 지표(4.3) — 결과를 기다리지 않고 바로 이동합니다
+        API.markBriefingOpened(el.dataset.id);
+
         const archive = el.dataset.archive;
         location.href = archive
           ? `./feed-detail.html?id=${encodeURIComponent(archive)}`
@@ -110,40 +135,70 @@
   /* ---------- 공유 ---------- */
   document.getElementById('shareBtn').addEventListener('click', async () => {
     const text = `Dr.Judge ${dateLabel.textContent} 브리핑`;
+    // 보고 있는 날짜가 링크에 담기도록 합니다
+    const url = location.origin + location.pathname + '?date=' + viewDate;
+
     if (navigator.share) {
       try {
-        await navigator.share({ title: 'Dr.Judge', text, url: location.href });
+        await navigator.share({ title: 'Dr.Judge', text, url });
         return;
       } catch (e) {
         /* 취소 */
       }
     }
     if (navigator.clipboard) {
-      await navigator.clipboard.writeText(location.href);
+      await navigator.clipboard.writeText(url);
       alert('브리핑 링크를 복사했어요.');
     }
   });
 
-  /* ---------- 시작 ---------- */
-  (async () => {
-    dateLabel.textContent = fmtDate();
-    summaryText.textContent = '브리핑을 불러오는 중…';
+  /* ---------- 불러오기 ---------- */
+  let loading = false;
 
-    const res = await API.getTodayBriefing();
+  async function load(date) {
+    if (loading) return;
+    loading = true;
+
+    viewDate = date;
+    dateLabel.textContent = fmtDate(date) + (date === TODAY ? ' · 오늘' : '');
+    summaryText.textContent = '브리핑을 불러오는 중…';
+    summaryStats.innerHTML = '';
+    list.innerHTML = '';
+    empty.hidden = true;
+
+    // 오늘이면 4.1, 아니면 4.2 — getBriefing 이 알아서 갈라 줍니다
+    const res = await API.getBriefing(date);
+
+    loading = false;
+    nextBtn.disabled = viewDate >= TODAY;
 
     if (!res.ok) {
-      summaryText.textContent = res.text;
-      summaryStats.innerHTML = '';
+      // 그 날 브리핑이 없는 건 오류가 아니라 '비어 있음'으로 보여 줍니다
+      items = [];
+      renderChips();
+      summaryText.textContent =
+        res.code === 'BRIEFING_NOT_FOUND' ? '이 날은 브리핑이 없어요.' : res.text;
       list.innerHTML = '';
       empty.hidden = false;
       return;
     }
 
-    dateLabel.textContent = fmtDate(res.data.date);
+    dateLabel.textContent =
+      fmtDate(res.data.date) + (res.data.date === TODAY ? ' · 오늘' : '');
     items = res.data.items;
+    current = '전체';
 
     renderChips();
     renderSummary();
     renderList();
-  })();
+  }
+
+  prevBtn.addEventListener('click', () => load(shift(viewDate, -1)));
+  nextBtn.addEventListener('click', () => {
+    if (viewDate >= TODAY) return;
+    load(shift(viewDate, 1));
+  });
+
+  /* ---------- 시작 ---------- */
+  load(viewDate);
 })();

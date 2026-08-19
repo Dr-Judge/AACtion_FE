@@ -166,10 +166,16 @@ const HISTORY_STATUS = {
    ============================================ */
 
 /* 근거 계층 라벨 — 신뢰도 5단계 */
+/* 근거 계층 라벨 5단계
+   icon   원 안에 들어가는 글자 (화면 목업 기준)
+   action 오른쪽에 붙는 안내 문구
+   score  5칸짜리 막대에서 채울 칸 수 */
 const EVIDENCE_LEVELS = [
   {
     key: 'clinical',
     name: '임상적 근거 있음',
+    icon: 'O',
+    action: '신뢰도 최고',
     trust: '최고',
     score: 5,
     desc: '과학적 증거가 명확하고 전문 기관의 승인을 받은 정보입니다.',
@@ -178,6 +184,8 @@ const EVIDENCE_LEVELS = [
   {
     key: 'expert',
     name: '전문가 의견 있음',
+    icon: '✓',
+    action: '근거 확인',
     trust: '높음',
     score: 4,
     desc: '임상 근거는 없으나 신뢰할 수 있는 전문가가 지지하는 정보입니다.',
@@ -186,7 +194,9 @@ const EVIDENCE_LEVELS = [
   {
     key: 'hold',
     name: '판단보류',
-    trust: '불확실',
+    icon: '?',
+    action: '추가 근거 확인',
+    trust: '보통',
     score: 3,
     desc: '상반된 근거가 존재하거나 정보가 불완전해 명확한 판단이 어렵습니다.',
     example: '찬성과 반대 연구가 함께 존재, 대상이 불명확, 조건 범위 불일치',
@@ -194,20 +204,37 @@ const EVIDENCE_LEVELS = [
   {
     key: 'lack',
     name: '근거 부족',
+    icon: 'x',
+    action: '확인 기준 필요',
     trust: '낮음',
     score: 2,
-    desc: '현재 확인된 과학적 근거가 부족합니다. 이는 거짓이 아니라 아직 검증되지 않았다는 뜻입니다.',
+    desc: '현재 확인된 과학적 근거가 부족합니다. 이는 거짓이 아니라 아직 충분하지 않음을 의미합니다.',
     example: '가설 단계, 소규모 연구만 존재, 공식 기준 부재',
   },
   {
+    /* 목업에는 4단계까지만 그려져 있지만, 서버가 '반박 근거 있음'을 보낼 수 있어
+       설명 화면에서 빠지면 안 됩니다. 문구가 마음에 안 들면 action 만 고치면 됩니다. */
     key: 'refuted',
     name: '반박 근거 있음',
+    icon: '!',
+    action: '주의 필요',
     trust: '매우 낮음',
     score: 1,
-    desc: '신뢰할 수 있는 과학적 근거가 주장을 뒷받침하지 않습니다.',
+    desc: '신뢰할 수 있는 과학적 근거가 해당 주장을 뒷받침하지 않습니다.',
     example: '대규모 임상연구 반박, 식약처 미승인, 공식 가이드라인 불일치',
   },
 ];
+
+/* 판정 결과 카드에 붙는 짧은 부연 (라벨 이름 옆 괄호) */
+const LEVEL_SUFFIX = {
+  clinical: '임상 근거 확인',
+  expert: '전문가 의견 확인',
+  hold: '근거 엇갈림',
+  lack: '임상적 근거 없음',
+  refuted: '반박 근거 있음',
+};
+
+const levelOf = (key) => EVIDENCE_LEVELS.find((l) => l.key === key) || null;
 
 /* 판정 결과 샘플 (실제로는 서버 응답으로 교체) */
 const RESULT_SAMPLE = {
@@ -286,3 +313,24 @@ const labelToValue = (list, label) =>
   (list.find((o) => o.label === label) || {}).value || null;
 const valueToLabel = (list, value) =>
   (list.find((o) => o.value === value) || {}).label || value;
+
+/* ============================================
+   포인트 사유 코드 → 화면 문구 (7.2)
+   확인된 값: DAILY_LOGIN, FEED_POST
+   나머지는 예상값이라, 서버에 없는 코드가 와도
+   '포인트 적립 / 포인트 사용'으로 안전하게 표시됩니다.
+   ============================================ */
+const POINT_REASON = {
+  DAILY_LOGIN: '매일 접속',
+  FEED_POST: '공유 카드 게시',
+  SIGNUP: '가입 축하',
+  ONBOARDING: '관심 분야 설정',
+  JUDGMENT: '판정 완료',
+  JUDGEMENT: '판정 완료',
+  SHARE: '판정 결과 공유',
+  LIKE_RECEIVED: '좋아요 받기',
+  EVENT: '이벤트 보상',
+  ADMIN: '관리자 조정',
+  REWARD_EXCHANGE: '리워드 교환',
+  GIFTICON: '기프티콘 교환',
+};

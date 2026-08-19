@@ -13,7 +13,7 @@ function makeApi(responder){
   Object.defineProperty(w,'localStorage',{value:{getItem:k=>(k in m?m[k]:null),setItem:(k,v)=>{m[k]=String(v)},removeItem:k=>{delete m[k]}},configurable:true});
   const calls=[];
   Object.defineProperty(w,'fetch',{configurable:true,writable:true,value:(url,opt)=>{
-    calls.push({url,method:(opt&&opt.method)||'GET',headers:(opt&&opt.headers)||{},body:opt&&opt.body?JSON.parse(opt.body):null});
+    calls.push({url,method:(opt&&opt.method)||'GET',headers:(opt&&opt.headers)||{},keepalive:Boolean(opt&&opt.keepalive),body:opt&&opt.body?JSON.parse(opt.body):null});
     const r=responder(url,opt);
     return Promise.resolve({ok:r.status<400,status:r.status,json:()=>Promise.resolve(r.json)});
   }});
@@ -108,9 +108,25 @@ const B='http://localhost:8080/api';
   const c=a.calls.find(x=>x.url.endsWith('/me/onboarding'));
   ok('2.1 온보딩','URL', c && c.url===B+'/me/onboarding', c&&c.url);
   ok('2.1 온보딩','POST', c.method==='POST');
-  ok('2.1 온보딩','interestCategories 배열', Array.isArray(c.body.interestCategories));
-  ok('2.1 온보딩','필드 3개', Object.keys(c.body).sort().join(',')==='ageGroup,gender,interestCategories', Object.keys(c.body).join(','));
+  ok('2.1 온보딩','interestCategoryCodes 배열', Array.isArray(c.body.interestCategoryCodes), Object.keys(c.body).join(','));
+  ok('2.1 온보딩','필드 3개', Object.keys(c.body).sort().join(',')==='ageGroup,gender,interestCategoryCodes', Object.keys(c.body).join(','));
+  ok('2.1 온보딩','onboardingToken 없으면 생략', c.body.onboardingToken===undefined);
   ok('2.1 온보딩','onboardingCompleted 반영', a.Store.current().profile.onboardingCompleted===true);
+}
+{
+  const a=makeApi((u)=>u.endsWith('/auth/login')
+    ?{status:200,json:{success:true,data:{accessToken:'ACC',refreshToken:'REF',onboardingToken:'OTK'},error:null}}
+    :{status:401,json:{success:false,data:null,error:null}});
+  await a.API.login({userId:'u',password:'p'});
+  const r=await a.API.saveOnboarding({interests:['건강/면역'],ageRange:'40~59세',gender:'여성'});
+  const c=a.calls.find(x=>x.url.endsWith('/me/onboarding'));
+  ok('2.1 온보딩','onboardingToken 있으면 body 에 담음', c.body.onboardingToken==='OTK');
+  ok('2.1 온보딩','401 → 토큰 만료 안내(재발급 안 함)', r.code==='ONBOARDING_TOKEN_EXPIRED', r.code);
+}
+{
+  const a=makeApi((u)=>authed(u) || {status:404,json:{success:false,data:null,error:null}});
+  await a.API.login({userId:'u',password:'p'});
+  ok('2.1 온보딩','404 → 계정 없음 안내', (await a.API.saveOnboarding({interests:['건강/면역'],ageRange:'40~59세',gender:'여성'})).code==='ONBOARDING_USER_NOT_FOUND');
 }
 
 /* ── 3.1 판정 요청 생성 ── */
@@ -164,7 +180,7 @@ const B='http://localhost:8080/api';
   ok('3.2 결과조회','extractedText → 문장', r.data.claim.includes('관절통'));
   ok('3.2 결과조회','conflictOfInterest 전달', r.data.conflictBadge==='상업적 의도 있음');
   ok('3.2 결과조회','guideCard.tips 전달', r.data.guideCard.tips.length===3);
-  ok('3.2 결과조회','완료 시 이력 적립', a.Store.current().history.length===1);
+  ok('3.2 결과조회','완료 시 포인트 적립', a.Store.hasHistory('1')===true);
 }
 {
   const a=makeApi((u)=>authed(u) || {status:403,json:{success:false,data:null,error:null}});
@@ -198,6 +214,48 @@ const B='http://localhost:8080/api';
   ok('4.1 브리핑','date 파싱', r.data.date==='2026-08-05');
   ok('4.1 브리핑','category enum → 한글', r.data.items[0].category==='건강/면역');
   ok('4.1 브리핑','relatedArchiveId 보존', r.data.items[0].archiveId==='arch_0099');
+}
+
+/* ── 4.2 특정 날짜 브리핑 ── */
+{
+  const a=makeApi((u)=>authed(u) || {status:200,json:{success:true,data:{date:'2026-08-01',
+    items:[{briefingId:'b_1',category:'COSMETICS',trustLevelLabel:'근거 부족',title:'t',summary:'s',relatedArchiveId:null}]},error:null}});
+  await a.API.login({userId:'u',password:'p'});
+  const r=await a.API.getBriefing('2026-08-01');
+  const c=a.calls.find(x=>/briefings/.test(x.url));
+  ok('4.2 날짜브리핑','URL 에 날짜가 경로로', c && c.url===B+'/briefings/2026-08-01', c&&c.url);
+  ok('4.2 날짜브리핑','GET + Authorization', c.method==='GET' && c.headers.Authorization==='Bearer ACC');
+  ok('4.2 날짜브리핑','4.1 과 같은 구조로 파싱', r.data.date==='2026-08-01' && r.data.items[0].category==='미용/화장품');
+  const _d=new Date(); const _today=new Date(_d.getTime()-_d.getTimezoneOffset()*60000).toISOString().slice(0,10);
+  await a.API.getBriefing(_today); // 오늘은 그 사람의 시간대 기준
+  ok('4.2 날짜브리핑','오늘이면 4.1 경로로', a.calls[a.calls.length-1].url===B+'/briefings/today', a.calls[a.calls.length-1].url);
+  const before=a.calls.length;
+  ok('4.2 날짜브리핑','형식 오류는 보내기 전에 차단', (await a.API.getBriefing('2026/08/01')).code==='INVALID_DATE' && a.calls.length===before);
+}
+{
+  const a=makeApi((u)=>authed(u) || {status:404,json:{success:false,data:null,error:null}});
+  await a.API.login({userId:'u',password:'p'});
+  ok('4.2 날짜브리핑','404 → 그 날 브리핑 없음', (await a.API.getBriefing('2020-01-01')).code==='BRIEFING_NOT_FOUND');
+}
+
+/* ── 4.3 브리핑 열람 기록 ── */
+{
+  const a=makeApi((u)=>authed(u) || {status:200,json:{success:true,data:{opened:true},error:null}});
+  await a.API.login({userId:'u',password:'p'});
+  const r=await a.API.markBriefingOpened('b_20260805_1');
+  const c=a.calls.find(x=>/\/open$/.test(x.url));
+  ok('4.3 열람기록','URL', c && c.url===B+'/briefings/b_20260805_1/open', c&&c.url);
+  ok('4.3 열람기록','POST + Authorization', c.method==='POST' && c.headers.Authorization==='Bearer ACC');
+  ok('4.3 열람기록','opened 파싱', r.ok===true && r.data.opened===true);
+  ok('4.3 열람기록','keepalive (이동 중에도 전송)', c.keepalive===true);
+  const before=a.calls.length;
+  await a.API.markBriefingOpened('b_20260805_1');
+  ok('4.3 열람기록','같은 브리핑 중복 전송 안 함', a.calls.length===before);
+}
+{
+  const a=makeApi((u)=>authed(u) || {status:404,json:{success:false,data:null,error:null}});
+  await a.API.login({userId:'u',password:'p'});
+  ok('4.3 열람기록','404 여도 화면에 영향 없음', (await a.API.markBriefingOpened('b_x')).ok===false);
 }
 
 /* ── 6.1 공유 링크 생성 ── */
@@ -304,6 +362,48 @@ const B='http://localhost:8080/api';
   await a.API.toggleLike('p_1', true);
   const c=a.calls.find(x=>x.url.includes('/like'));
   ok('6.7 좋아요','취소는 DELETE (같은 URL)', c.method==='DELETE' && c.url===B+'/feed/posts/p_1/like', c.method);
+}
+
+/* ── 6.8 게시물 삭제 ── */
+{
+  const a=makeApi((u,o)=>authed(u) || (/\/feed\/posts\/p_1$/.test(u) && (o&&o.method)==='DELETE'
+    ? {status:200,json:{success:true,data:null,error:null}} : {status:404,json:{}}));
+  await a.API.login({userId:'u',password:'p'});
+  const r=await a.API.deletePost('p_1');
+  const c=a.calls.find(x=>/\/feed\/posts\/p_1$/.test(x.url));
+  ok('6.8 게시물삭제','URL', c && c.url===B+'/feed/posts/p_1', c&&c.url);
+  ok('6.8 게시물삭제','DELETE + Authorization', c.method==='DELETE' && c.headers.Authorization==='Bearer ACC');
+  ok('6.8 게시물삭제','data:null 성공 처리', r.ok===true);
+}
+
+/* ── 7.2 포인트 내역 ── */
+{
+  const pageOf=(all)=>(u)=>{
+    const q=new URL(u,'http://x').searchParams;
+    const page=Number(q.get('page')||1), size=Number(q.get('size')||20);
+    return {status:200,json:{success:true,data:{items:all.slice((page-1)*size,page*size),page,totalPages:Math.max(1,Math.ceil(all.length/size))},error:null}};
+  };
+  const sample=[{type:'EARN',reason:'FEED_POST',amount:50,createdAt:'2026-08-10T09:00:00Z'},
+                {type:'EARN',reason:'DAILY_LOGIN',amount:10,createdAt:'2026-08-09T01:00:00Z'}];
+  const a=makeApi((u)=>authed(u) || (/points\/history/.test(u)?pageOf(sample)(u):{status:404,json:{}}));
+  await a.API.login({userId:'u',password:'p'});
+  const r=await a.API.getPointHistory({page:2,size:5});
+  const c=a.calls.find(x=>/points/.test(x.url));
+  ok('7.2 포인트내역','URL', c && c.url.startsWith(B+'/users/me/points/history?'), c&&c.url);
+  ok('7.2 포인트내역','GET + Authorization', c.method==='GET' && c.headers.Authorization==='Bearer ACC');
+  ok('7.2 포인트내역','page·size 쿼리스트링', /page=2/.test(c.url) && /size=5/.test(c.url), c.url);
+  const r1=await a.API.getPointHistory();
+  ok('7.2 포인트내역','기본값 page=1 size=20', /page=1&size=20/.test(a.calls[a.calls.length-1].url));
+  ok('7.2 포인트내역','items·page·totalPages 파싱', r1.data.items.length===2 && r1.data.page===1 && r1.data.totalPages===1);
+  ok('7.2 포인트내역','reason 코드 → 화면 문구', r1.data.items[0].label==='공유 카드 게시', r1.data.items[0].label);
+  ok('7.2 포인트내역','EARN/USE 부호', r1.data.items[0].signed===50);
+  const s2=await a.API.getPointSummary();
+  ok('7.2 포인트내역','누적 포인트 합산', s2.data.total===60, String(s2.data.total));
+}
+{
+  const a=makeApi((u)=>authed(u) || {status:500,json:{success:false,data:null,error:null}});
+  await a.API.login({userId:'u',password:'p'});
+  ok('7.2 포인트내역','500 → 서버 오류 안내', (await a.API.getPointHistory()).code==='SERVER_ERROR');
 }
 
 /* ── 공통 ── */

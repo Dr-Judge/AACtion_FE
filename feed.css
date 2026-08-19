@@ -111,20 +111,20 @@
 }
 .verdict-row__icon {
   flex: 0 0 auto;
-  width: 18px;
-  height: 18px;
+  width: 24px;
+  height: 24px;
   display: grid;
   place-items: center;
   border-radius: 50%;
   background: var(--green-500);
   color: var(--white);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
 }
 .verdict-row__icon svg {
-  width: 11px;
-  height: 11px;
-}
-.verdict-row--hold .verdict-row__icon {
-  background: var(--gray-400);
+  width: 12px;
+  height: 12px;
 }
 .verdict-row__label {
   font-size: 12.5px;
@@ -133,12 +133,14 @@
 }
 .verdict-row__hint {
   margin-left: auto;
-  font-size: 11px;
-  color: var(--gray-400);
+  font-size: 11.5px;
+  color: var(--gray-500);
 }
 
 .pcard__foot {
-  margin-top: 12px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--gray-100);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -299,18 +301,19 @@
 }
 .checkbox-card__mark {
   flex: 0 0 auto;
-  margin-top: 1px;
-  width: 15px;
-  height: 15px;
+  margin-top: 2px;
+  width: 13px;
+  height: 13px;
   display: grid;
   place-items: center;
-  border-radius: 50%;
-  background: var(--green-500);
-  color: var(--white);
+  color: #6fb32b;
 }
 .checkbox-card__mark svg {
-  width: 9px;
-  height: 9px;
+  width: 13px;
+  height: 13px;
+}
+.checkbox-card__title {
+  color: #5f9c1a;
 }
 
 /* 주의 안내 */
@@ -347,4 +350,28 @@
 }
 .pcard__like:disabled {
   opacity: 0.5;
+}
+
+
+/* ---------- 피드 카드 상세 ---------- */
+/* 신뢰도 별점 (근거 단계 점수를 별로 보여 줍니다) */
+.stars {
+  letter-spacing: 2px;
+  color: var(--gray-300);
+  font-size: 13px;
+}
+.stars b {
+  color: var(--green-500);
+  font-weight: 400;
+}
+.infotable td.is-wrap {
+  text-align: right;
+  font-weight: 700;
+  line-height: 1.55;
+}
+.detail__note {
+  margin-top: 14px;
+  font-size: 11.5px;
+  color: var(--gray-400);
+  line-height: 1.6;
 }

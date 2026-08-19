@@ -15,6 +15,11 @@
 const Store = (() => {
   const KEY = 'drjudge';
 
+  /* 저장 형식이 바뀌면 올립니다.
+     v1 에는 비밀번호가 들어 있었는데, 서버 로그인으로 바뀌면서
+     더 이상 저장하지 않습니다. 예전 데이터는 다음 실행 때 지워집니다. */
+  const SCHEMA = 2;
+
   /* 가입 시 자동으로 붙는 닉네임 후보 */
   const RANDOM_NICKNAMES = [
     '건강한하루',
@@ -65,11 +70,22 @@ const Store = (() => {
     window.name = TAG + text;
   }
 
+  const emptyDb = () => ({ v: SCHEMA, session: null, users: {} });
+
   function read() {
     try {
-      return JSON.parse(rawGet()) || { session: null, users: {} };
+      const db = JSON.parse(rawGet());
+      if (!db) return emptyDb();
+
+      // 예전 형식이면 통째로 비우고 시작합니다 (비밀번호 잔재 제거)
+      if (db.v !== SCHEMA) {
+        const fresh = emptyDb();
+        write(fresh);
+        return fresh;
+      }
+      return db;
     } catch (e) {
-      return { session: null, users: {} };
+      return emptyDb();
     }
   }
   function write(db) {
@@ -106,82 +122,34 @@ const Store = (() => {
         interest: (profile && profile.interest) || null,
       },
       points: [],
-      history: [],
-      cards: [],
+      done: [], // 포인트를 이미 준 판정 번호
+      cards: [], // 공유 회수에 필요한 postId ↔ judgmentId 만 보관
     };
   }
 
-  /* ---------- 계정 ---------- */
+  /* ---------- 계정 ----------
+     로그인·중복확인은 서버가 합니다. 여기서는 화면에 보여줄
+     프로필만 들고 있습니다. 비밀번호는 저장하지 않습니다. */
 
-  /**
-   * 회원가입 — 이미 있는 아이디·이메일이면 거절합니다.
-   * 한 사람이 계정을 여러 개 만들 수 없도록 이메일로도 막습니다.
-   *
-   * 주의: 지금은 백엔드가 없어 비밀번호를 브라우저에 그대로 둡니다.
-   *       서버가 붙으면 이 부분은 서버로 옮기고 여기서는 지워야 합니다.
-   */
-  function register(userId, password, profile) {
+  /** 로그인·가입 성공 후, 이 기기에 프로필 자리를 만듭니다 */
+  function createProfile(userId, profile) {
     const db = read();
-    const users = db.users;
+    const isNew = !db.users[userId];
+    if (isNew) db.users[userId] = blank(userId, profile);
+    else if (profile) Object.assign(db.users[userId].profile, profile);
 
-    if (users[userId]) return { ok: false, code: 'DUPLICATE_USER_ID' };
-
-    const email = (profile && profile.email ? profile.email : '').toLowerCase();
-    const nickname = profile && profile.nickname ? profile.nickname : '';
-
-    const taken = (pick, value) =>
-      value &&
-      Object.values(users).some(
-        (u) => String(pick(u.profile) || '').toLowerCase() === value.toLowerCase(),
-      );
-
-    if (taken((p) => p.email, email)) return { ok: false, code: 'DUPLICATE_EMAIL' };
-    if (taken((p) => p.nickname, nickname))
-      return { ok: false, code: 'DUPLICATE_NICKNAME' };
-
-    users[userId] = blank(userId, profile);
-    users[userId].password = password;
     db.session = userId;
     write(db);
 
-    addPoint('가입 축하 포인트', 1000);
-    return { ok: true, user: users[userId] };
-  }
-
-  /** 로그인 — 가입한 계정이 아니거나 비밀번호가 다르면 거절합니다. */
-  function authenticate(userId, password) {
-    const db = read();
-    const user = db.users[userId];
-
-    if (!user) return { ok: false, code: 'USER_NOT_FOUND' };
-    if (user.password !== password) return { ok: false, code: 'INVALID_PASSWORD' };
-
-    db.session = userId;
-    write(db);
-    return { ok: true, user };
-  }
-
-  /** 이미 쓰고 있는 값인지 — field: userId | email | nickname */
-  function isTaken(field, value) {
-    if (!value) return false;
-    const users = read().users;
-    if (field === 'userId') return Boolean(users[value]);
-    return Object.values(users).some(
-      (u) =>
-        String(u.profile[field] || '').toLowerCase() ===
-        String(value).toLowerCase(),
-    );
+    if (isNew) addPoint('가입 축하 포인트', 1000);
+    return { ok: true, isNew, user: db.users[userId] };
   }
 
   /* ---------- 세션 ---------- */
 
-  /** 세션만 다시 여는 용도 — 계정이 없으면 실패합니다 */
-  function signIn(userId) {
-    const db = read();
-    if (!db.users[userId]) return { ok: false, code: 'USER_NOT_FOUND' };
-    db.session = userId;
-    write(db);
-    return { ok: true, user: db.users[userId] };
+  /** 세션 열기 — 이 기기에 없는 계정이면 자리를 만들어 줍니다 */
+  function signIn(userId, profile) {
+    return createProfile(userId, profile);
   }
 
   function signOut() {
@@ -209,8 +177,14 @@ const Store = (() => {
     return db.users[db.session].profile;
   }
 
-  /* ---------- 포인트 ---------- */
+  /* ---------- 포인트 ----------
+     서버가 포인트를 관리하면(API.LIVE.points) 여기에는 쌓지 않습니다.
+     양쪽에 다 쌓이면 숫자가 두 배로 보이기 때문입니다. */
+  const serverPoints = () =>
+    typeof API !== 'undefined' && API.LIVE && API.LIVE.points === true;
+
   function addPoint(label, amount) {
+    if (serverPoints()) return;
     const db = read();
     if (!db.session) return;
     db.users[db.session].points.unshift({ label, at: now(), amount });
@@ -222,15 +196,22 @@ const Store = (() => {
   }
 
   /* ---------- 판정 이력 ---------- */
+  /* 판정 이력은 서버에서 받아옵니다(3.3).
+     여기서는 포인트를 한 번만 주기 위해 처리한 판정 번호만 기억합니다. */
   function hasHistory(id) {
     const u = current();
-    return Boolean(u && u.history.some((h) => h.id && String(h.id) === String(id)));
+    return Boolean(u && (u.done || []).includes(String(id)));
   }
 
-  function addHistory(item) {
+  function markJudged(id) {
     const db = read();
     if (!db.session) return;
-    db.users[db.session].history.unshift({ at: now(), ...item });
+    const u = db.users[db.session];
+    u.done = u.done || [];
+    if (u.done.includes(String(id))) return;
+
+    u.done.unshift(String(id));
+    u.done = u.done.slice(0, 200); // 너무 쌓이지 않게
     write(db);
     addPoint('판정 완료', 50);
   }
@@ -263,8 +244,6 @@ const Store = (() => {
     const u = db.users[db.session];
     if (data.profile) Object.assign(u.profile, data.profile);
     if (data.points) u.points = data.points;
-    if (data.history) u.history = data.history;
-    if (data.cards) u.cards = data.cards;
     write(db);
   }
 
@@ -275,12 +254,20 @@ const Store = (() => {
   function saveTokens(t) {
     const db = read();
     db.tokens = t
-      ? { accessToken: t.accessToken || null, refreshToken: t.refreshToken || null }
+      ? {
+          accessToken: t.accessToken || null,
+          refreshToken: t.refreshToken || null,
+          /* 온보딩 저장(2.1)에 쓰는 1회용 토큰.
+             지금 로그인 응답에는 없지만, 서버가 주기 시작하면 그대로 보관됩니다. */
+          onboardingToken: t.onboardingToken || null,
+        }
       : null;
     write(db);
   }
   function tokens() {
-    return read().tokens || { accessToken: null, refreshToken: null };
+    return (
+      read().tokens || { accessToken: null, refreshToken: null, onboardingToken: null }
+    );
   }
 
   /* ---------- 판정 결과 ---------- */
@@ -320,9 +307,7 @@ const Store = (() => {
   }
 
   return {
-    register,
-    authenticate,
-    isTaken,
+    createProfile,
     signIn,
     signOut,
     current,
@@ -331,7 +316,7 @@ const Store = (() => {
     updateProfile,
     addPoint,
     totalPoint,
-    addHistory,
+    markJudged,
     hasHistory,
     addCard,
     removeCard,

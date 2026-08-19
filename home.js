@@ -11,6 +11,7 @@ let slideIndex = 0;
 let autoTimer = null;
 
 let slides = BRIEFINGS; // 서버에서 받아오면 교체됩니다
+let slidesFromServer = false; // 기본 배너의 id 는 서버에 없는 값이라 지표를 보내지 않습니다
 
 function renderBriefings() {
   track.innerHTML = slides.map(
@@ -33,11 +34,13 @@ function renderBriefings() {
 
   // 터치 시 데일리 브리핑 상세로 이동
   track.querySelectorAll('.briefing__slide').forEach((el) => {
-    el.addEventListener('click', () => goBriefingDetail());
+    el.addEventListener('click', () => goBriefingDetail(el.dataset.id));
   });
 }
 
-function goBriefingDetail() {
+function goBriefingDetail(briefingId) {
+  // 오픈율 지표(4.3) — 서버에서 받은 카드일 때만, 기다리지 않고 보냅니다
+  if (slidesFromServer && briefingId) API.markBriefingOpened(briefingId);
   location.href = './briefing.html';
 }
 
@@ -178,6 +181,7 @@ async function loadBriefing() {
     desc: b.summary || b.levelLabel,
     cta: '브리핑 확인하기',
   }));
+  slidesFromServer = true;
   renderBriefings();
   startAuto();
 }

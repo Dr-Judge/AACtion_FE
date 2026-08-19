@@ -31,6 +31,7 @@ const API = (() => {
     briefing: true, // GET /briefings/today — 연동됨
     share: true, // POST /judgments/{id}/share — 연동됨
     feed: true, // POST /feed/posts — 연동됨
+    points: true, // GET /users/me/points/history — 연동됨
     profile: false, // 명세 대기
   };
 
@@ -95,9 +96,19 @@ const API = (() => {
       field: null,
       text: '더 이상 볼 수 없는 링크예요. 공유한 분에게 다시 요청해 주세요.',
     },
+    INVALID_DATE: { field: null, text: '날짜 형식이 올바르지 않아요.' },
+    BRIEFING_NOT_FOUND: { field: null, text: '이 날짜에는 브리핑이 없어요.' },
     SESSION_EXPIRED: {
       field: null,
       text: '로그인이 만료됐어요. 다시 로그인해 주세요.',
+    },
+    ONBOARDING_TOKEN_EXPIRED: {
+      field: null,
+      text: '인증 시간이 지났어요. 다시 로그인한 뒤 시도해 주세요.',
+    },
+    ONBOARDING_USER_NOT_FOUND: {
+      field: null,
+      text: '계정을 찾을 수 없어요. 다시 로그인해 주세요.',
     },
     FORBIDDEN: { field: null, text: '내가 요청한 판정만 볼 수 있어요.' },
     NOT_FOUND: { field: null, text: '판정 결과를 찾을 수 없어요.' },
@@ -132,7 +143,8 @@ const API = (() => {
   };
 
   async function request(path, opts = {}) {
-    const { method = 'GET', body, auth = true, statusMap, noRetry, _retried } = opts;
+    const { method = 'GET', body, auth = true, statusMap, noRetry, own401, keepalive, _retried } =
+      opts;
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), TIMEOUT);
 
@@ -145,19 +157,23 @@ const API = (() => {
         },
         body: body ? JSON.stringify(body) : undefined,
         signal: controller.signal,
+        /* 화면을 옮기는 순간 보내는 요청은 keepalive 를 켭니다.
+           안 켜면 이동하면서 요청이 끊겨 기록이 남지 않습니다. */
+        keepalive: Boolean(keepalive),
       });
 
       const json = await res.json().catch(() => ({}));
       const err = json.error || {};
 
       // 토큰이 없는데 401 이면 로그인이 필요한 상황입니다
-      if (res.status === 401 && auth && !getRefreshToken()) {
+      // (own401 은 이 401 을 호출한 쪽이 직접 다루겠다는 뜻입니다)
+      if (res.status === 401 && auth && !own401 && !getRefreshToken()) {
         notifySessionExpired();
         return toError('SESSION_EXPIRED');
       }
 
       // 액세스 토큰이 만료된 경우 → 한 번만 재발급 후 다시 시도
-      if (res.status === 401 && auth && !noRetry && !_retried && getRefreshToken()) {
+      if (res.status === 401 && auth && !noRetry && !own401 && !_retried && getRefreshToken()) {
         const again = await refresh();
         if (again.ok) return request(path, { ...opts, _retried: true });
         return toError('SESSION_EXPIRED');
@@ -201,9 +217,16 @@ const API = (() => {
   const getToken = () => Store.tokens().accessToken;
   const getRefreshToken = () => Store.tokens().refreshToken;
 
-  function setTokens(accessToken, refreshToken) {
-    Store.saveTokens({ accessToken, refreshToken });
+  function setTokens(accessToken, refreshToken, onboardingToken) {
+    Store.saveTokens({
+      accessToken,
+      refreshToken,
+      // 새로 주지 않으면 갖고 있던 값을 유지합니다
+      onboardingToken:
+        onboardingToken !== undefined ? onboardingToken : Store.tokens().onboardingToken,
+    });
   }
+  const getOnboardingToken = () => Store.tokens().onboardingToken || null;
   const clearToken = () => Store.saveTokens(null);
 
   const delay = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -228,27 +251,23 @@ const API = (() => {
       });
       if (!res.ok) return res;
 
-      setTokens(res.data.accessToken, res.data.refreshToken);
+      // onboardingToken 은 지금 응답에 없지만, 생기면 그대로 받아 둡니다 (2.1 에서 씀)
+      setTokens(res.data.accessToken, res.data.refreshToken, res.data.onboardingToken);
 
-      // 서버가 프로필을 주지 않으므로, 없으면 아이디로 계정을 만들어 둡니다
-      if (!Store.signIn(userId).ok) {
-        Store.register(userId, password, {});
-      }
+      // 서버가 프로필을 주지 않으므로, 이 기기의 프로필 자리를 엽니다
+      Store.signIn(userId);
       Store.hydrate(res.data);
       return res;
     }
 
     await delay(120);
 
-    // 가입한 계정이 아니면 로그인되지 않습니다.
-    const r = Store.authenticate(userId, password);
-    if (!r.ok) return toError(r.code);
-
+    // 목 모드에서는 서버 없이 그대로 통과시킵니다 (화면 확인용)
     setTokens('mock-token', 'mock-refresh');
-    return { ok: true, data: { token: 'mock-token', user: r.user.profile } };
+    const { user } = Store.signIn(userId);
+    return { ok: true, data: { token: 'mock-token', user: user.profile } };
   }
 
-  /** 회원가입 */
   /**
    * 회원가입
    *   POST /api/auth/signup
@@ -260,11 +279,6 @@ const API = (() => {
    */
   async function signup(payload) {
     if (live('signup')) {
-      // 서버 409 는 이메일 중복만 알려주므로, 아이디·닉네임은 먼저 확인합니다
-      if (Store.isTaken('userId', payload.userId)) return toError('DUPLICATE_USER_ID');
-      if (Store.isTaken('nickname', payload.nickname))
-        return toError('DUPLICATE_NICKNAME');
-
       const res = await request('/auth/signup', {
         method: 'POST',
         auth: false,
@@ -279,9 +293,13 @@ const API = (() => {
       });
       if (!res.ok) return res;
 
-      // 가입 성공 → 계정 저장
-      Store.register(payload.userId, payload.password, payload);
-      Store.updateProfile({ serverId: res.data.userId });
+      // 가입 성공 → 이 기기에 프로필 자리를 만듭니다 (비밀번호는 저장 안 함)
+      Store.createProfile(payload.userId, {
+        name: payload.name,
+        nickname: payload.nickname,
+        email: payload.email,
+        serverId: res.data.userId,
+      });
 
       // 로그인 API 가 준비되면 토큰까지 받아옵니다.
       // 아직이면 방금 만든 로컬 세션으로 그대로 진행합니다.
@@ -297,32 +315,21 @@ const API = (() => {
 
     await delay(150);
 
-    // 아이디·이메일·닉네임이 겹치면 가입되지 않습니다 (한 사람 한 계정)
-    const r = Store.register(payload.userId, payload.password, payload);
-    if (!r.ok) return toError(r.code);
-
     setTokens('mock-token', 'mock-refresh');
+    Store.createProfile(payload.userId, payload);
     return { ok: true, data: { token: 'mock-token', userId: payload.userId } };
   }
 
   /** 중복 확인 — field: 'userId' | 'nickname' | 'email' */
+  /**
+   * 중복 확인 — 서버 API 가 아직 없습니다.
+   * 지금은 통과시키고, 실제 중복은 가입할 때 409 로 걸러집니다.
+   */
   async function checkDuplicate(field, value) {
     if (live('checkDuplicate')) {
       return request(
         `/auth/check?field=${encodeURIComponent(field)}&value=${encodeURIComponent(value)}`,
         { auth: false },
-      );
-    }
-
-    await delay(80);
-
-    if (Store.isTaken(field, value)) {
-      return toError(
-        {
-          userId: 'DUPLICATE_USER_ID',
-          nickname: 'DUPLICATE_NICKNAME',
-          email: 'DUPLICATE_EMAIL',
-        }[field],
       );
     }
     return { ok: true, data: { available: true } };
@@ -407,14 +414,6 @@ const API = (() => {
         : [{ key: 'hold' }];
     const level = levels[Store.hashOf(claim) % levels.length];
 
-    const STATUS = {
-      clinical: 'fit',
-      expert: 'fit',
-      hold: 'vague',
-      lack: 'vague',
-      refuted: 'unfit',
-    };
-
     const result = {
       id: 'j' + Date.now(),
       claim,
@@ -425,13 +424,7 @@ const API = (() => {
     };
     Store.saveResult(result);
 
-    Store.addHistory({
-      id: result.id,
-      category: '기타',
-      title: claim.length > 24 ? claim.slice(0, 24) + '…' : claim,
-      status: STATUS[level.key] || 'vague',
-    });
-
+    Store.markJudged(result.id);
     return { ok: true, data: result };
   }
 
@@ -443,14 +436,6 @@ const API = (() => {
     NO_EVIDENCE: 'lack',
     COUNTER_EVIDENCE: 'refuted',
   };
-  const LEVEL_TO_HISTORY = {
-    clinical: 'fit',
-    expert: 'fit',
-    hold: 'vague',
-    lack: 'vague',
-    refuted: 'unfit',
-  };
-
   function normalizeJudgment(d) {
     const coi = d.conflictOfInterest || {};
     return {
@@ -494,18 +479,8 @@ const API = (() => {
     const result = normalizeJudgment(res.data);
     Store.saveResult(result);
 
-    // 판정이 끝나면 이력에 남깁니다 (같은 판정은 한 번만)
-    if (result.status === 'DONE' && !Store.hasHistory(result.id)) {
-      Store.addHistory({
-        id: result.id,
-        category: result.levelLabel || '기타',
-        title:
-          result.claim.length > 24
-            ? result.claim.slice(0, 24) + '…'
-            : result.claim || '판정 요청',
-        status: LEVEL_TO_HISTORY[result.level] || 'vague',
-      });
-    }
+    // 판정이 끝나면 포인트를 한 번만 줍니다 (이력 목록은 서버에서 받습니다)
+    if (result.status === 'DONE') Store.markJudged(result.id);
     return { ok: true, data: result };
   }
 
@@ -595,10 +570,17 @@ const API = (() => {
   /* ---------- 온보딩 ----------
      화면에서는 한글 라벨을 쓰고, 여기서 서버 값으로 바꿔 보냅니다.
      값이 주어진 항목만 담습니다(수정 때 일부만 보내기 위함). */
-  function onboardingBody({ interests, ageRange, gender }) {
+  /* 관심 카테고리를 담는 필드 이름이 저장(2.1)과 수정(2.2) 명세에서 다릅니다.
+     둘 다 같은 이름이라고 확인되면 아래 한 줄만 맞추면 됩니다. */
+  const INTEREST_FIELD = {
+    POST: 'interestCategoryCodes', // 2.1 명세
+    PATCH: 'interestCategories', // 2.2 명세
+  };
+
+  function onboardingBody({ interests, ageRange, gender }, method) {
     const body = {};
     if (interests) {
-      body.interestCategories = interests
+      body[INTEREST_FIELD[method] || 'interestCategories'] = interests
         .map((l) => labelToValue(INTEREST_OPTIONS, l))
         .filter(Boolean);
     }
@@ -621,20 +603,38 @@ const API = (() => {
   /**
    * 온보딩 정보 저장 (최초)
    *   POST /api/me/onboarding
-   *   요청  { interestCategories:[...], ageGroup, gender }  — 모두 필수
-   *   응답  201 { ..., onboardingCompleted:true }
-   *         400 필수 값 누락·형식 오류 / 401 인증 / 500 서버 오류
+   *   요청  { onboardingToken?, interestCategoryCodes:[...], ageGroup, gender }
+   *   응답  201 { interestCategories:[...], ageGroup, gender, onboardingCompleted:true }
+   *         400 필수 값 누락·형식 오류·카테고리 코드 오류
+   *         401 onboardingToken 만료 / 404 토큰 속 사용자 없음 / 500 서버 오류
+   *
+   * onboardingToken 은 카카오 로그인 응답에서 받는 값입니다.
+   * 지금은 카카오를 쓰지 않아 값이 없으므로, 있을 때만 담고
+   * 없으면 로그인한 사람의 Authorization 헤더로 본인을 확인합니다.
    */
   async function saveOnboarding(input) {
-    const body = onboardingBody(input);
+    const body = onboardingBody(input, 'POST');
+    const token = getOnboardingToken();
+    if (token) body.onboardingToken = token;
 
     if (live('onboarding')) {
       const res = await request('/me/onboarding', {
         method: 'POST',
         body,
-        statusMap: { 400: 'INVALID_INPUT' },
+        // onboardingToken 을 보낸 경우의 401 은 그 토큰이 만료된 것이라
+        // 액세스 토큰 재발급으로는 해결되지 않습니다. 그래서 재시도하지 않습니다.
+        own401: Boolean(token),
+        statusMap: {
+          400: 'INVALID_INPUT',
+          401: token ? 'ONBOARDING_TOKEN_EXPIRED' : undefined,
+          404: 'ONBOARDING_USER_NOT_FOUND',
+        },
       });
       if (!res.ok) return res;
+
+      // 한 번 쓴 토큰은 비웁니다
+      if (token) setTokens(getToken(), getRefreshToken(), null);
+
       applyOnboarding(input, res.data);
       return res;
     }
@@ -656,7 +656,7 @@ const API = (() => {
     const me = Store.current();
     if (!me || !me.profile.onboardingCompleted) return saveOnboarding(input);
 
-    const body = onboardingBody(input);
+    const body = onboardingBody(input, 'PATCH');
 
     if (live('onboarding')) {
       const res = await request('/me/onboarding', {
@@ -720,12 +720,14 @@ const API = (() => {
   }
 
   /* 라벨 → 피드 카드의 판정 결과 줄 */
+  /* 서버가 주는 라벨 문구 → data.js 의 5단계 키.
+     아이콘·안내 문구(EVIDENCE_LEVELS)를 그대로 쓰기 위해 정확히 맞춥니다. */
   const LABEL_TO_RESULT = {
-    '임상적 근거 있음': 'expert',
+    '임상적 근거 있음': 'clinical',
     '전문가 의견 있음': 'expert',
     판단보류: 'hold',
     '근거 부족': 'lack',
-    '반박 근거 있음': 'lack',
+    '반박 근거 있음': 'refuted',
   };
 
   /**
@@ -751,22 +753,34 @@ const API = (() => {
     const res = await request(`/feed/posts?${q}`);
     if (!res.ok) return res;
 
+    /* 목록에 title·category 가 없어서(6.5), 이 기기에서 올린 글이면
+       그때 저장해 둔 원문을 대신 보여 줍니다. */
+    const mine = (Store.current() || { cards: [] }).cards;
+
     return {
       ok: true,
       data: {
         page: res.data.page || page,
         totalPages: res.data.totalPages || 1,
-        items: (res.data.items || []).map((it) => ({
-          id: it.postId,
-          author: (it.author && it.author.nickname) || '익명',
-          authorId: it.author && it.author.userId,
-          levelLabel: it.trustLevelLabel || '',
-          result: LABEL_TO_RESULT[it.trustLevelLabel] || 'hold',
-          summary: it.summary || '',
-          likes: it.likeCount || 0,
-          liked: Boolean(it.liked), // 서버가 안 주면 false 로 시작합니다
-          createdAt: it.createdAt,
-        })),
+        items: (res.data.items || []).map((it) => {
+          const local = mine.find((c) => c.postId === it.postId) || {};
+          const title = it.title || local.title || it.summary || '';
+          return {
+            id: it.postId,
+            author: (it.author && it.author.nickname) || '익명',
+            authorId: it.author && it.author.userId,
+            category: it.category || it.categoryName || local.category || '',
+            title,
+            /* title 이 summary 로 대체된 경우엔 설명을 비워 둡니다 (같은 문장 두 번 노출 방지) */
+            desc: title === it.summary ? '' : it.summary || '',
+            levelLabel: it.trustLevelLabel || '',
+            result: LABEL_TO_RESULT[it.trustLevelLabel] || 'hold',
+            summary: it.summary || '',
+            likes: it.likeCount || 0,
+            liked: Boolean(it.liked), // 서버가 안 주면 false 로 시작합니다
+            createdAt: it.createdAt,
+          };
+        }),
       },
     };
   }
@@ -796,13 +810,31 @@ const API = (() => {
   }
 
   /**
+   * 피드 게시물 삭제 (본인 것만)
+   *   DELETE /api/feed/posts/{postId}
+   *   응답  200 { success:true, data:null }
+   *         401 인증 / 403 남의 글 / 404 없음 / 500 서버 오류
+   */
+  async function deletePost(postId) {
+    if (!live('feed')) {
+      await delay(80);
+      return { ok: true, data: null };
+    }
+
+    return request(`/feed/posts/${encodeURIComponent(postId)}`, {
+      method: 'DELETE',
+      statusMap: { 403: 'FORBIDDEN', 404: 'NOT_FOUND' },
+    });
+  }
+
+  /**
    * 내가 올린 피드 게시물 목록
    *   GET /api/feed/posts/me?page=&size=
    *   응답  200 6.5 와 같은 구조, 본인 게시물만
    *         401 인증 / 500 서버 오류
    *
-   * items 에 judgmentId 가 없어서, 공유 중지에 필요한 값은
-   * 이 기기에 저장해 둔 카드에서 찾아 붙입니다.
+   * 삭제는 postId 로 하므로(6.8) 별도 보정이 필요 없습니다.
+   * 제목만, 이 기기에서 올린 글이면 원문을 대신 보여줍니다.
    */
   async function getMyFeedPosts(opts = {}) {
     const page = opts.page || 1;
@@ -833,7 +865,6 @@ const API = (() => {
           return {
             id: it.postId,
             postId: it.postId,
-            judgmentId: it.judgmentId || local.judgmentId || null,
             title: local.title || it.summary || '',
             category: local.category || it.trustLevelLabel || '',
             date: formatDate(it.createdAt).split(' · ')[0],
@@ -843,6 +874,120 @@ const API = (() => {
         }),
       },
     };
+  }
+
+  /* ============================================================
+     7. 포인트
+     ============================================================ */
+
+  /**
+   * 포인트 적립/사용 내역
+   *   GET /api/users/me/points/history?page=&size=
+   *   응답  200 { items:[{ type, reason, amount, createdAt }], page, totalPages }
+   *         401 인증 필요/토큰 만료 · 500 서버 오류
+   *
+   *   type    EARN(적립) / USE(사용)
+   *   reason  DAILY_LOGIN, FEED_POST … (문구는 data.js 의 POINT_REASON)
+   *   amount  양수로 오고, 더할지 뺄지는 type 으로 판단합니다.
+   */
+  async function getPointHistory(opts = {}) {
+    const page = Number(opts.page) || 1;
+    const size = Number(opts.size) || 20;
+
+    if (!live('points')) {
+      await delay(80);
+      const mine = (Store.current() || { points: [] }).points;
+      return {
+        ok: true,
+        data: {
+          page: 1,
+          totalPages: 1,
+          hasNext: false,
+          items: mine.map((p) =>
+            normalizePoint({
+              type: 'EARN',
+              reason: p.label,
+              amount: p.amount,
+              createdAt: p.at,
+            }),
+          ),
+        },
+      };
+    }
+
+    const q = new URLSearchParams({ page: String(page), size: String(size) });
+    const res = await request(`/users/me/points/history?${q}`);
+    if (!res.ok) return res;
+
+    const cur = Number(res.data.page) || page;
+    const total = Number(res.data.totalPages) || 1;
+
+    return {
+      ok: true,
+      data: {
+        page: cur,
+        totalPages: total,
+        hasNext: cur < total,
+        items: (res.data.items || []).map(normalizePoint),
+      },
+    };
+  }
+
+  /* 서버 코드(FEED_POST 등)를 화면에 쓸 문구로 바꿔 줍니다. */
+  function normalizePoint(it) {
+    const used = String(it.type || 'EARN').toUpperCase() === 'USE';
+    const amount = Math.abs(Number(it.amount) || 0);
+    const code = it.reason == null ? '' : String(it.reason);
+
+    /* 아직 모르는 코드가 오면 대문자 코드는 감추고 기본 문구를 씁니다.
+       (한글 등 이미 사람이 읽을 수 있는 값이면 그대로 보여 줍니다.) */
+    const known = typeof POINT_REASON !== 'undefined' ? POINT_REASON[code] : null;
+    const readable = code && !/^[A-Z0-9_]+$/.test(code) ? code : '';
+    const label = known || readable || (used ? '포인트 사용' : '포인트 적립');
+
+    return {
+      type: used ? 'USE' : 'EARN',
+      reason: code,
+      label,
+      amount,
+      signed: used ? -amount : amount,
+      at: formatDate(it.createdAt),
+      createdAt: it.createdAt || '',
+    };
+  }
+
+  /**
+   * 누적 포인트 + 전체 내역
+   * 잔액만 주는 API 가 아직 없어서, 내역을 끝까지 훑어 더합니다.
+   * 한 번에 100건씩 가져오고 최대 20페이지(2,000건)까지만 봅니다.
+   * 거기서 끊기면 exact:false 로 알려 줍니다.
+   */
+  async function getPointSummary() {
+    const MAX_PAGE = 20;
+    const items = [];
+    let total = 0;
+    let page = 1;
+    let pages = 1;
+    let exact = true;
+
+    while (page <= pages) {
+      const res = await getPointHistory({ page, size: 100 });
+      if (!res.ok) return res;
+
+      res.data.items.forEach((p) => {
+        items.push(p);
+        total += p.signed;
+      });
+
+      pages = res.data.totalPages;
+      if (page >= MAX_PAGE && page < pages) {
+        exact = false;
+        break;
+      }
+      page += 1;
+    }
+
+    return { ok: true, data: { total, exact, items } };
   }
 
   /**
@@ -887,6 +1032,48 @@ const API = (() => {
     return { ok: true, data: normalizeJudgment(res.data) };
   }
 
+  /* ---------- 브리핑 ---------- */
+
+  /* 4.1 / 4.2 응답은 필드 구조가 같아서 여기서 함께 정리합니다. */
+  function normalizeBriefing(data, fallbackDate) {
+    return {
+      date: (data && data.date) || fallbackDate,
+      items: ((data && data.items) || []).map((it) => ({
+        id: it.briefingId,
+        category: valueToLabel(INTEREST_OPTIONS, it.category),
+        levelLabel: it.trustLevelLabel || '',
+        title: it.title || '',
+        summary: it.summary || '',
+        archiveId: it.relatedArchiveId || null,
+      })),
+    };
+  }
+
+  /* 오늘 날짜(YYYY-MM-DD) — 반드시 그 사람의 시간대로 계산합니다.
+     toISOString() 은 UTC 라서, 한국에서 자정~오전 9시 사이에는 어제가 나옵니다. */
+  const todayIso = () => {
+    const d = new Date();
+    const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
+    return local.toISOString().slice(0, 10);
+  };
+
+  function mockBriefing(date) {
+    return {
+      ok: true,
+      data: {
+        date,
+        items: (typeof FEEDS !== 'undefined' ? FEEDS : []).slice(0, 2).map((f) => ({
+          id: f.id,
+          category: f.category,
+          levelLabel: '판단보류',
+          title: f.title,
+          summary: f.desc,
+          archiveId: null,
+        })),
+      },
+    };
+  }
+
   /**
    * 오늘의 브리핑 조회
    *   GET /api/briefings/today
@@ -899,39 +1086,81 @@ const API = (() => {
   async function getTodayBriefing() {
     if (!live('briefing')) {
       await delay(80);
-      return {
-        ok: true,
-        data: {
-          date: new Date().toISOString().slice(0, 10),
-          items: (typeof FEEDS !== 'undefined' ? FEEDS : []).slice(0, 2).map((f) => ({
-            id: f.id,
-            category: f.category,
-            levelLabel: '판단보류',
-            title: f.title,
-            summary: f.desc,
-            archiveId: null,
-          })),
-        },
-      };
+      return mockBriefing(todayIso());
     }
 
     const res = await request('/briefings/today');
     if (!res.ok) return res;
 
-    return {
-      ok: true,
-      data: {
-        date: res.data.date,
-        items: (res.data.items || []).map((it) => ({
-          id: it.briefingId,
-          category: valueToLabel(INTEREST_OPTIONS, it.category),
-          levelLabel: it.trustLevelLabel || '',
-          title: it.title || '',
-          summary: it.summary || '',
-          archiveId: it.relatedArchiveId || null,
-        })),
-      },
-    };
+    return { ok: true, data: normalizeBriefing(res.data, todayIso()) };
+  }
+
+  /**
+   * 특정 날짜 브리핑 조회
+   *   GET /api/briefings/{date}      date 는 YYYY-MM-DD
+   *   응답  200 4.1 과 같은 구조 (date 만 요청한 날짜)
+   *         400 날짜 형식 오류 / 401 인증 / 404 그 날 브리핑 없음 / 500 서버 오류
+   *
+   * 오늘 날짜를 넣으면 4.1 로 돌립니다. 같은 내용을 두 경로로 부를 필요가 없어서입니다.
+   */
+  async function getBriefing(date) {
+    const iso = String(date || '').slice(0, 10);
+
+    // 서버에 보내기 전에 형식을 한 번 봅니다 (400 을 미리 막습니다)
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return toError('INVALID_DATE');
+    if (iso === todayIso()) return getTodayBriefing();
+
+    if (!live('briefing')) {
+      await delay(80);
+      return mockBriefing(iso);
+    }
+
+    const res = await request(`/briefings/${iso}`, {
+      statusMap: { 400: 'INVALID_DATE', 404: 'BRIEFING_NOT_FOUND' },
+    });
+    if (!res.ok) return res;
+
+    return { ok: true, data: normalizeBriefing(res.data, iso) };
+  }
+
+  /**
+   * 브리핑 열람 기록 (오픈율 지표용)
+   *   POST /api/briefings/{briefingId}/open
+   *   응답  200 { success:true, data:{ opened:true } }
+   *         401 인증 / 404 해당 브리핑 없음 / 500 서버 오류
+   *
+   * 지표 수집용이라 화면을 막지 않습니다.
+   *  - 결과를 기다리지 않고 바로 다음 화면으로 넘어갑니다 (keepalive 로 요청은 살아 있음)
+   *  - 실패해도 사용자에게 아무것도 보여주지 않습니다 (콘솔에만 남김)
+   *  - 401 이어도 '로그인 만료' 안내를 띄우지 않습니다. 지표 때문에 흐름을 끊을 수는 없으니까요.
+   *  - 같은 브리핑은 한 번만 보냅니다 (더블클릭 방지)
+   */
+  const openedBriefings = new Set();
+
+  async function markBriefingOpened(briefingId) {
+    const key = String(briefingId || '');
+    if (!key) return { ok: false, code: 'INVALID_INPUT' };
+    if (openedBriefings.has(key)) return { ok: true, data: { opened: true } };
+    openedBriefings.add(key);
+
+    if (!live('briefing')) {
+      await delay(30);
+      return { ok: true, data: { opened: true } };
+    }
+
+    const res = await request(`/briefings/${encodeURIComponent(key)}/open`, {
+      method: 'POST',
+      keepalive: true,
+      noRetry: true,
+      own401: true,
+      statusMap: { 401: 'SESSION_EXPIRED', 404: 'NOT_FOUND' },
+    });
+
+    if (!res.ok) {
+      openedBriefings.delete(key); // 다음 기회에 다시 시도할 수 있게
+      console.warn('[API] 브리핑 열람 기록 실패 —', res.code, '(화면에는 영향 없음)');
+    }
+    return res;
   }
 
   /**
@@ -1041,6 +1270,8 @@ const API = (() => {
     getJudgment,
     getJudgmentHistory,
     getTodayBriefing,
+    getBriefing,
+    markBriefingOpened,
     createShareLink,
     getSharedJudgment,
     revokeShareLink,
@@ -1048,6 +1279,9 @@ const API = (() => {
     getFeedPosts,
     getMyFeedPosts,
     toggleLike,
+    deletePost,
+    getPointHistory,
+    getPointSummary,
     waitForJudgment,
     saveOnboarding,
     updateOnboarding,

@@ -28,7 +28,19 @@
       <div class="scroll-area">
         <!-- 날짜 + 공유 -->
         <div class="bdate">
-          <p class="bdate__label" id="dateLabel"></p>
+          <div class="bdate__nav">
+            <button type="button" class="bdate__arrow" id="prevDay" aria-label="이전 날짜">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="m15 5-7 7 7 7" />
+              </svg>
+            </button>
+            <p class="bdate__label" id="dateLabel"></p>
+            <button type="button" class="bdate__arrow" id="nextDay" aria-label="다음 날짜">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="m9 5 7 7-7 7" />
+              </svg>
+            </button>
+          </div>
 
           <button type="button" class="bdate__share" id="shareBtn">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

@@ -23,75 +23,140 @@
     box.classList.remove('is-waiting');
   }
 
+  /* 링크에 판정 번호를 달아 둡니다. 설명 화면에서 현재 등급을 표시하는 데 씁니다. */
+  function linkWithId(el, judgmentId, extra) {
+    if (!el || !judgmentId) return;
+    el.href =
+      el.getAttribute('href').split('?')[0] +
+      '?id=' +
+      encodeURIComponent(judgmentId) +
+      (extra || '');
+  }
+
+  const fmtDate = (isoStr) => {
+    const d = isoStr ? new Date(isoStr) : new Date();
+    if (Number.isNaN(d.getTime())) return '';
+    const p = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}.${p(d.getMonth() + 1)}.${p(d.getDate())}`;
+  };
+
+  /* 서버가 주는 tip 은 한 줄짜리 문자열이라, 화면에서는 제목과 설명으로 나눕니다.
+     "제목 → 설명" 이나 { title, desc } 형태면 나눠서, 아니면 제목만 보여 줍니다. */
+  function splitTip(tip) {
+    if (tip && typeof tip === 'object') {
+      return { title: tip.title || tip.name || '', desc: tip.desc || tip.detail || '' };
+    }
+    const text = String(tip || '');
+    const m = text.split(/\s*(?:→|->|\||\n)\s*/);
+    return { title: m[0] || text, desc: m.slice(1).join(' ') };
+  }
+
   /* ---------- 화면 그리기 ---------- */
   function render(r) {
     hideWaiting();
 
-    document.getElementById('claimText').textContent = `“${r.claim}”`;
+    const judgmentId = r.id || id;
+    const lv = typeof levelOf === 'function' ? levelOf(r.level) : null;
 
-    /* 근거 계층 라벨 */
-    const levelName = document.getElementById('levelName');
-    levelName.textContent =
-      r.levelLabel ||
-      (EVIDENCE_LEVELS.find((l) => l.key === r.level) || {}).name ||
-      '판정 결과';
+    /* 주장 · 상태 · 분류 */
+    document.getElementById('claimText').textContent = r.claim || '판정 결과';
+    document.getElementById('stateChip').textContent =
+      r.status === 'DONE' || !r.status ? '판정 완료' : '판정 중';
 
-    const strong = r.level === 'clinical' || r.level === 'expert';
-    const mark = document.querySelector('.tagcard__mark');
-    if (!strong) mark.style.background = 'var(--gray-400)';
+    const cat =
+      r.categoryName ||
+      (typeof CATEGORIES !== 'undefined' && r.categoryId
+        ? CATEGORIES[r.categoryId] || ''
+        : '');
+    document.getElementById('catText').textContent = cat;
+    document.getElementById('dateText').textContent = fmtDate(r.createdAt);
 
-    document.getElementById('levelSources').textContent = r.sources
-      .map((s) => s.title)
-      .join(' · ');
+    /* 썸네일 — 서버가 이미지를 주면 그걸, 없으면 입력 방식 아이콘을 둡니다 */
+    const thumbUrl = r.thumbnailUrl || r.imageUrl || null;
+    if (thumbUrl) {
+      const thumb = document.getElementById('thumb');
+      thumb.innerHTML = `<img src="${esc(thumbUrl)}" alt="" />`;
+    }
 
-    const levelDesc =
-      (EVIDENCE_LEVELS.find((l) => l.key === r.level) || {}).desc || '';
-    document.querySelector('.tagcard__desc').textContent = levelDesc;
+    /* 판정 결과 줄 */
+    const name =
+      r.levelLabel || (lv && lv.name) || (r.status === 'DONE' ? '판정 결과' : '판정 중');
+    document.getElementById('levelName').textContent = name;
 
-    /* 이해상충 배지 */
-    const coi = document.getElementById('conflictCard');
+    const suffix =
+      typeof LEVEL_SUFFIX !== 'undefined' && r.level ? LEVEL_SUFFIX[r.level] : '';
+    document.getElementById('levelSuffix').textContent = suffix ? `(${suffix})` : '';
+
+    const mark = document.getElementById('levelMark');
+    mark.textContent = (lv && lv.icon) || '?';
+
+    /* 상업적 가능성 (= 이해상충) */
+    const sect = document.getElementById('conflictSect');
     if (!r.conflict) {
-      coi.hidden = true;
+      sect.hidden = true;
     } else {
-      coi.hidden = false;
-      coi.querySelector('.tagcard__name').textContent = r.conflictBadge;
-      coi.querySelector('.tagcard__desc').textContent = r.conflictDesc;
+      sect.hidden = false;
+      if (r.conflictBadge) document.getElementById('conflictHead').textContent = r.conflictBadge;
+      if (r.conflictDesc) document.getElementById('conflictDesc').textContent = r.conflictDesc;
     }
 
     /* 근거 요약 */
-    document.getElementById('sourceList').innerHTML = r.sources.length
-      ? r.sources
-          .map(
-            (s) =>
-              `<li>${s.url ? `<a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.title)}</a>` : esc(s.title)}</li>`,
-          )
-          .join('')
-      : '<li>확인된 출처가 없어요.</li>';
+    const sources = r.sources || [];
+    const lines = r.evidence
+      ? String(r.evidence)
+          .split(/\n+/)
+          .map((t) => t.trim())
+          .filter(Boolean)
+      : [];
 
-    if (r.evidence) {
-      const p = document.createElement('p');
-      p.className = 'sect__body';
-      p.style.marginTop = '10px';
-      p.textContent = r.evidence;
-      document.getElementById('sourceList').after(p);
-    }
+    const items = lines.length
+      ? lines.map((t) => esc(t))
+      : sources.map((sc) =>
+          sc.url
+            ? `<a href="${esc(sc.url)}" target="_blank" rel="noopener">${esc(sc.title)}</a>`
+            : esc(sc.title || ''),
+        );
+
+    document.getElementById('sourceList').innerHTML = items.length
+      ? items.map((t) => `<li>${t}</li>`).join('')
+      : '<li>확인된 근거가 아직 없어요.</li>';
 
     /* 구매 기준 카드 */
     const tips = (r.guideCard && r.guideCard.tips) || [];
     document.getElementById('criteriaPreview').innerHTML = tips.length
-      ? tips.map((t) => `<li>${esc(t)}</li>`).join('')
-      : '<li>확인 기준이 준비되지 않았어요.</li>';
+      ? tips
+          .map((tip, i) => {
+            const { title, desc } = splitTip(tip);
+            return `
+      <li class="steps__item">
+        <span class="steps__no" aria-hidden="true">${i + 1}</span>
+        <div>
+          <p class="steps__title">${esc(title)}</p>
+          ${desc ? `<p class="steps__desc">→ ${esc(desc)}</p>` : ''}
+        </div>
+      </li>`;
+          })
+          .join('')
+      : '<li class="steps__item"><div><p class="steps__desc">확인 기준이 준비되지 않았어요.</p></div></li>';
 
     if (r.guideCard && r.guideCard.title) {
-      document.querySelector('#criteriaPreview').previousElementSibling.textContent =
-        r.guideCard.title;
+      document.getElementById('guideTitle').textContent = r.guideCard.title;
     }
 
     /* 의료 안전 안내 — 서버가 문구를 주면 그걸 씁니다 */
     if (r.safetyNotice) {
-      const notice = document.querySelector('.notice-card p');
-      if (notice) notice.textContent = r.safetyNotice;
+      document.getElementById('safetyText').textContent = r.safetyNotice;
     }
+
+    /* 설명 화면들이 현재 판정을 알 수 있게 링크에 번호를 답니다 */
+    // 라벨 설명 화면은 '지금 적용된 라벨'을 위에 띄우므로 등급도 함께 넘깁니다
+    linkWithId(
+      document.getElementById('labelLink'),
+      judgmentId,
+      r.level ? '&level=' + encodeURIComponent(r.level) : '',
+    );
+    linkWithId(document.getElementById('badgeLink'), judgmentId);
+    linkWithId(document.getElementById('evidenceLink'), judgmentId);
 
     wireShare(r);
   }
@@ -122,7 +187,7 @@
       const res = await API.publishToFeed(r.id || id);
 
       postBtn.disabled = false;
-      postBtn.textContent = '공유 피드에 게시하기';
+      postBtn.textContent = '↑ 공유 피드에 게시하기';
 
       if (!res.ok) {
         alert(res.text);
@@ -130,6 +195,7 @@
       }
 
       const d = new Date();
+      // 공유 회수(6.3)에 필요한 judgmentId 를 기억해 둡니다
       Store.addCard({
         judgmentId: r.id || id,
         postId: res.data.postId,
@@ -202,14 +268,17 @@
         levelLabel: null,
         evidence: RESULT_SAMPLE.scope,
         conflict: RESULT_SAMPLE.conflict,
-        conflictBadge: '이해상충 가능성',
+        conflictBadge: '상업적 가능성',
         conflictDesc:
           '이 정보의 출처는 제조사 또는 판매사와 연관된 채널입니다.',
         sources: RESULT_SAMPLE.sources.map((t) => ({ title: t })),
         guideCard: {
           title: '이렇게 확인하세요',
-          tips: BUY_CRITERIA[0].items.map(([t]) => t),
+          tips: BUY_CRITERIA[0].items.map(([t, d]) => `${t} → ${d}`),
         },
+        categoryId: 3,
+        createdAt: new Date().toISOString(),
+        status: 'DONE',
         safetyNotice: null,
       });
       return;

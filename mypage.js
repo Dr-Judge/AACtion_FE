@@ -49,23 +49,73 @@
   const empty = (title, desc) =>
     `<li class="empty"><p class="empty__title">${title}</p><p class="empty__desc">${desc}</p></li>`;
 
-  /* ---------- 포인트 ---------- */
-  document.getElementById('pointValue').textContent = num(Store.totalPoint()) + 'P';
+  /* ---------- 포인트 (7.2 서버 내역) ----------
+     내역을 한 번에 받아 두고, 화면에는 PAGE_SIZE 개씩 보여 줍니다.
+     '더 보기'는 이미 받아 둔 목록에서 꺼내 쓰므로 추가 요청이 없습니다. */
+  const PAGE_SIZE = 10;
+  const pointValue = document.getElementById('pointValue');
   const log = document.getElementById('pointLog');
-  log.innerHTML = me.points.length
-    ? me.points
-        .map(
-          (p) => `
+  const pointMore = document.getElementById('pointMore');
+  const pointAll = document.getElementById('pointAll');
+
+  let pointItems = [];
+  let pointShown = PAGE_SIZE;
+
+  function renderPoints() {
+    const list = pointItems.slice(0, pointShown);
+
+    log.innerHTML = list.length
+      ? list
+          .map((p) => {
+            const use = p.type === 'USE';
+            return `
       <li class="pointlog__item">
         <span class="pointlog__text">
           <b>${esc(p.label)}</b>
           <span>${esc(p.at)}</span>
         </span>
-        <span class="pointlog__amount">+${num(p.amount)}P</span>
-      </li>`,
-        )
-        .join('')
-    : empty('아직 적립 내역이 없어요', '판정을 완료하거나 카드를 공유하면 포인트가 쌓여요.');
+        <span class="pointlog__amount${use ? ' is-use' : ''}">${use ? '−' : '+'}${num(p.amount)}P</span>
+      </li>`;
+          })
+          .join('')
+      : empty(
+          '아직 포인트 내역이 없어요',
+          '판정을 완료하거나 카드를 공유하면 포인트가 쌓여요.',
+        );
+
+    pointMore.hidden = pointShown >= pointItems.length;
+    pointAll.disabled = pointItems.length <= PAGE_SIZE;
+  }
+
+  async function loadPoints() {
+    const res = await API.getPointSummary();
+
+    if (!res.ok) {
+      pointValue.textContent = '—';
+      log.innerHTML = empty('포인트를 불러오지 못했어요', res.text);
+      pointMore.hidden = true;
+      pointAll.disabled = true;
+      return;
+    }
+
+    pointItems = res.data.items;
+    pointValue.textContent = num(res.data.total) + 'P' + (res.data.exact ? '' : '+');
+    renderPoints();
+  }
+
+  pointMore.addEventListener('click', () => {
+    pointShown += PAGE_SIZE;
+    renderPoints();
+  });
+
+  // 카드의 '포인트 내역 ›' — 전체를 펼치고 목록으로 스크롤
+  pointAll.addEventListener('click', () => {
+    pointShown = pointItems.length;
+    renderPoints();
+    document.getElementById('pointLogTitle').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+
+  loadPoints();
 
   /* ---------- 판정 이력 (서버에서 페이지 단위로) ---------- */
   const statRow = document.getElementById('statRow');
@@ -193,7 +243,7 @@
             ${c.likes}
           </span>
           <a href="./feed-detail.html?id=${encodeURIComponent(c.id)}" class="mycard__view">공유 카드 보기 ›</a>
-          <button type="button" class="mycard__del" data-del="${esc(c.id)}" aria-label="공유 중지">
+          <button type="button" class="mycard__del" data-del="${esc(c.id)}" aria-label="게시물 삭제">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
               <path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12" />
             </svg>
@@ -241,14 +291,14 @@
     loadCards(false);
   }
 
-  /* ---------- 공유 링크 회수 ---------- */
+  /* ---------- 게시물 삭제 ---------- */
   const rBox = document.getElementById('revokeConfirm');
   const rAlert = document.getElementById('revokeAlert');
   const rOk = document.getElementById('revokeOk');
-  let revokingId = null;
+  let deletingId = null;
 
-  function openRevoke(cardId) {
-    revokingId = cardId;
+  function openRevoke(postId) {
+    deletingId = postId;
     rAlert.hidden = true;
     rBox.hidden = false;
   }
@@ -261,36 +311,23 @@
   });
 
   rOk.addEventListener('click', async () => {
-    const card = cardItems.find((c) => c.id === revokingId);
-    if (!card) {
-      rBox.hidden = true;
-      return;
-    }
-
-    if (!card.judgmentId) {
-      rAlert.textContent =
-        '이 카드는 공유를 중지할 수 없어요. 판정 결과 화면에서 다시 시도해 주세요.';
-      rAlert.hidden = false;
-      return;
-    }
-
     rOk.disabled = true;
-    rOk.textContent = '중지하는 중…';
+    rOk.textContent = '삭제하는 중…';
 
-    const res = await API.revokeShareLink(card.judgmentId);
+    const res = await API.deletePost(deletingId);
 
     rOk.disabled = false;
-    rOk.textContent = '공유 중지';
+    rOk.textContent = '삭제하기';
 
-    // 이미 회수된 링크(404)면 목록에서 지우는 게 맞습니다
-    if (!res.ok && res.code !== 'SHARE_NOT_FOUND') {
+    // 이미 없는 글(404)이면 목록에서 지우는 게 맞습니다
+    if (!res.ok && res.code !== 'NOT_FOUND') {
       rAlert.textContent = res.text;
       rAlert.hidden = false;
       return;
     }
 
-    Store.removeCard(revokingId);
-    cardItems = cardItems.filter((c) => c.id !== revokingId);
+    Store.removeCard(deletingId);
+    cardItems = cardItems.filter((c) => c.id !== deletingId);
     rBox.hidden = true;
     renderCards();
   });

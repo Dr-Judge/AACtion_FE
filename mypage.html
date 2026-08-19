@@ -72,13 +72,14 @@
         <section class="mpanel" data-panel="point">
           <div class="pointcard">
             <p class="pointcard__label">누적 포인트</p>
-            <p class="pointcard__value" id="pointValue">0P</p>
-            <a href="#" class="pointcard__more">포인트 내역 ›</a>
+            <p class="pointcard__value" id="pointValue">불러오는 중…</p>
+            <button type="button" class="pointcard__more" id="pointAll">포인트 내역 ›</button>
             <span class="pointcard__coin" aria-hidden="true">P</span>
           </div>
 
-          <h2 class="mpanel__title">최근 포인트 적립</h2>
+          <h2 class="mpanel__title" id="pointLogTitle">포인트 내역</h2>
           <ul class="pointlog" id="pointLog"></ul>
+          <button type="button" class="morebtn" id="pointMore" hidden>더 보기</button>
 
           <p class="pointnote">
             <span class="pointnote__coin" aria-hidden="true">P</span>
@@ -111,18 +112,18 @@
 
       <nav class="tabbar" data-active="my"></nav>
 
-      <!-- 공유 링크 회수 확인 -->
+      <!-- 게시물 삭제 확인 -->
       <div class="confirm" id="revokeConfirm" hidden>
         <div class="confirm__box" role="alertdialog" aria-labelledby="revokeTitle">
-          <h2 class="confirm__title" id="revokeTitle">공유를 중지할까요?</h2>
+          <h2 class="confirm__title" id="revokeTitle">게시물을 내릴까요?</h2>
           <p class="confirm__desc">
-            이미 공유한 링크로는 더 이상 볼 수 없게 됩니다.
-            판정 결과는 내 이력에 그대로 남아요.
+            공유 피드에서 사라집니다.
+            판정 결과는 내 판정 이력에 그대로 남아요.
           </p>
           <p class="form-alert" id="revokeAlert" hidden></p>
           <div class="confirm__actions">
             <button type="button" class="confirm__btn confirm__btn--cancel" id="revokeCancel">취소</button>
-            <button type="button" class="confirm__btn confirm__btn--danger" id="revokeOk">공유 중지</button>
+            <button type="button" class="confirm__btn confirm__btn--danger" id="revokeOk">삭제하기</button>
           </div>
         </div>
       </div>
