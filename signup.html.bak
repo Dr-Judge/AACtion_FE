@@ -276,12 +276,10 @@
           <p class="picker__label">관심 분야 <span class="picker__hint">여러 개 고를 수 있어요</span></p>
 
           <div class="optlist" id="interestList">
-            <!-- 서버 categories 와 1:1 입니다. data-value 는 data.js 의 INTEREST_OPTIONS label 과 같아야 합니다. -->
-            <button type="button" class="optlist__opt" data-value="영양제·건강기능식품">영양제·건강기능식품</button>
-            <button type="button" class="optlist__opt" data-value="다이어트·체중관리">다이어트·체중관리</button>
-            <button type="button" class="optlist__opt" data-value="질환·증상관리">질환·증상관리</button>
-            <button type="button" class="optlist__opt" data-value="화장품">화장품</button>
-            <button type="button" class="optlist__opt" data-value="시술·피부관리">시술·피부관리</button>
+            <button type="button" class="optlist__opt" data-value="다이어트">다이어트</button>
+            <button type="button" class="optlist__opt" data-value="미용/화장품">미용/화장품</button>
+            <button type="button" class="optlist__opt" data-value="건강/면역">건강/면역</button>
+            <button type="button" class="optlist__opt" data-value="기타">기타</button>
           </div>
 
           <p class="form-alert" id="step4Alert" hidden></p>
@@ -292,25 +290,7 @@
 
           <div class="accordion" data-acc>
             <button type="button" class="accordion__head">
-              <span>영양제·건강기능식품</span>
-              <span class="accordion__chevron" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6" /></svg>
-              </span>
-            </button>
-            <div class="accordion__panel" hidden>
-              <p class="accordion__label">정보 판정 기준</p>
-              <ul class="accordion__list">
-                <li>논문 출처와 연구 대상(사람·동물) 확인</li>
-                <li>상관관계를 인과관계로 바꿔 말하는지</li>
-                <li>권장 섭취량·복용 기간의 근거 제시 여부</li>
-                <li>의약품으로 오인할 표현 사용 여부</li>
-                <li>식약처 건강기능식품 인증 여부</li>
-              </ul>
-            </div>
-          </div>
-          <div class="accordion" data-acc>
-            <button type="button" class="accordion__head">
-              <span>다이어트·체중관리</span>
+              <span>다이어트</span>
               <span class="accordion__chevron" aria-hidden="true">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6" /></svg>
               </span>
@@ -322,29 +302,13 @@
                 <li>예) "먹기만 해도", "무조건", "100% 효과"</li>
                 <li>부작용·주의사항 명시 여부</li>
                 <li>임상시험·논문 등 객관적 근거 자료 확인</li>
+                <li>식약처 건강기능식품 인증 여부</li>
               </ul>
             </div>
           </div>
           <div class="accordion" data-acc>
             <button type="button" class="accordion__head">
-              <span>질환·증상관리</span>
-              <span class="accordion__chevron" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6" /></svg>
-              </span>
-            </button>
-            <div class="accordion__panel" hidden>
-              <p class="accordion__label">정보 판정 기준</p>
-              <ul class="accordion__list">
-                <li>1차 출처(원문·기관 발표) 확인</li>
-                <li>치료·완치를 단정하는 표현인지</li>
-                <li>의사·약사 등 전문가 검토를 거쳤는지</li>
-                <li>발표 시점과 최신 개정 여부</li>
-              </ul>
-            </div>
-          </div>
-          <div class="accordion" data-acc>
-            <button type="button" class="accordion__head">
-              <span>화장품</span>
+              <span>미용/화장품</span>
               <span class="accordion__chevron" aria-hidden="true">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6" /></svg>
               </span>
@@ -361,7 +325,7 @@
           </div>
           <div class="accordion" data-acc>
             <button type="button" class="accordion__head">
-              <span>시술·피부관리</span>
+              <span>건강/면역</span>
               <span class="accordion__chevron" aria-hidden="true">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6" /></svg>
               </span>
@@ -369,10 +333,27 @@
             <div class="accordion__panel" hidden>
               <p class="accordion__label">정보 판정 기준</p>
               <ul class="accordion__list">
-                <li>시술 전후 사진의 보정·조명 조건 표기 여부</li>
-                <li>부작용·회복 기간·재시술 주기 안내 여부</li>
-                <li>의료기기 허가 사항과 광고 표현의 일치 여부</li>
+                <li>논문 출처와 연구 대상(사람·동물) 확인</li>
+                <li>상관관계를 인과관계로 바꿔 말하는지</li>
+                <li>권장 섭취량·복용 기간의 근거 제시 여부</li>
+                <li>의약품으로 오인할 표현 사용 여부</li>
+              </ul>
+            </div>
+          </div>
+          <div class="accordion" data-acc>
+            <button type="button" class="accordion__head">
+              <span>기타</span>
+              <span class="accordion__chevron" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6" /></svg>
+              </span>
+            </button>
+            <div class="accordion__panel" hidden>
+              <p class="accordion__label">정보 판정 기준</p>
+              <ul class="accordion__list">
+                <li>1차 출처(원문·기관 발표) 확인</li>
+                <li>발표 시점과 최신 개정 여부</li>
                 <li>광고·협찬 등 이해관계 표기 여부</li>
+                <li>전문가 검토를 거쳤는지</li>
               </ul>
             </div>
           </div>

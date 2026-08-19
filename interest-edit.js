@@ -21,9 +21,22 @@
   );
 
   const options = [...list.querySelectorAll('.optlist__opt')];
-  options.forEach((o) =>
-    o.classList.toggle('is-selected', picked.has(o.dataset.value)),
-  );
+  const paint = () =>
+    options.forEach((o) =>
+      o.classList.toggle('is-selected', picked.has(o.dataset.value)),
+    );
+  paint();
+
+  /* 서버에 저장된 값(1.6)이 오면 그걸로 맞춥니다.
+     다른 기기에서 바꿨을 수도 있어서, 화면의 값보다 서버 값이 정확합니다. */
+  API.syncProfile().then((res) => {
+    // 서버가 관심분야를 안 내려주면 화면에 있는 값을 그대로 둡니다
+    if (!res.ok || !res.data.interests || !res.data.interests.length) return;
+    picked.clear();
+    res.data.interests.forEach((v) => picked.add(v));
+    paint();
+    update();
+  });
 
   options.forEach((opt) => {
     opt.addEventListener('click', () => {

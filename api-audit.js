@@ -100,6 +100,106 @@ const B='http://localhost:8080/api';
   ok('1.5 탈퇴','withdrawnAt 파싱', r.ok && r.data.withdrawnAt.startsWith('2026-08-16'));
 }
 
+/* ── 1.2-1 카카오 로그인 ── */
+{
+  const b64=(o)=>Buffer.from(JSON.stringify(o)).toString('base64').replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
+  const JWT='h.'+b64({sub:'99'})+'.s';
+  const a=makeApi(()=>({status:200,json:{success:true,data:{token:JWT,refreshToken:'REF',
+    user:{nickname:'임수영'},isNewUser:false,onboardingToken:null},error:null}}));
+  const r=await a.API.kakaoLogin({code:'CODE'});
+  const c=a.calls[0];
+  ok('1.2 카카오','URL', c.url===B+'/auth/kakao', c.url);
+  ok('1.2 카카오','POST + code·redirectUri', c.method==='POST' && c.body.code==='CODE' && Boolean(c.body.redirectUri));
+  ok('1.2 카카오','응답의 token 을 액세스 토큰으로', a.API.getToken()===JWT);
+  ok('1.2 카카오','기존 회원은 온보딩 불필요', r.data.needsOnboarding===false);
+}
+{
+  const a=makeApi(()=>({status:200,json:{success:true,data:{token:null,refreshToken:null,
+    user:null,isNewUser:true,onboardingToken:'OTK'},error:null}}));
+  const r=await a.API.kakaoLogin({code:'CODE'});
+  ok('1.2 카카오','신규 회원은 온보딩 필요', r.data.needsOnboarding===true);
+  ok('1.2 카카오','onboardingToken 보관', a.Store.tokens().onboardingToken==='OTK');
+  ok('1.2 카카오','토큰 없으면 로그인 아님', a.Store.isLoggedIn()===false);
+}
+{
+  const a=makeApi(()=>({status:401,json:{success:false,data:null,error:null}}));
+  ok('1.2 카카오','401 → 카카오 인증 실패', (await a.API.kakaoLogin({code:'X'})).code==='KAKAO_AUTH_FAILED');
+}
+
+/* ── 1.2-2 카카오 토큰 발급 ── */
+{
+  const b64=(o)=>Buffer.from(JSON.stringify(o)).toString('base64').replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
+  const JWT='h.'+b64({sub:'99'})+'.s';
+  const a=makeApi((u)=>/kakao\/complete/.test(u)
+    ?{status:200,json:{success:true,data:{token:JWT,refreshToken:'REF',user:{nickname:'카카오사용자'},
+      isNewUser:false,onboardingToken:null},error:null}}
+    :{status:200,json:{success:true,data:{token:null,refreshToken:null,user:null,
+      isNewUser:true,onboardingToken:'OTK'},error:null}});
+  await a.API.kakaoLogin({code:'C'});
+  const r=await a.API.kakaoComplete();
+  const c=a.calls.find(x=>/kakao\/complete/.test(x.url));
+  ok('1.2-2 토큰발급','URL', c && c.url===B+'/auth/kakao/complete', c&&c.url);
+  ok('1.2-2 토큰발급','onboardingToken 그대로 전달', c.body.onboardingToken==='OTK');
+  ok('1.2-2 토큰발급','필드 1개만', Object.keys(c.body).join(',')==='onboardingToken', Object.keys(c.body).join(','));
+  ok('1.2-2 토큰발급','token 받아 로그인 완료', r.data.needsOnboarding===false && a.API.getToken()===JWT);
+  ok('1.2-2 토큰발급','onboardingToken 비움', a.Store.tokens().onboardingToken===null);
+}
+{
+  const a=makeApi((u)=>({status:200,json:{success:true,data:{token:null,refreshToken:null,user:null,
+    isNewUser:true,onboardingToken:/complete/.test(u)?'OTK2':'OTK'},error:null}}));
+  await a.API.kakaoLogin({code:'C'});
+  const r=await a.API.kakaoComplete();
+  ok('1.2-2 토큰발급','200이어도 미완료면 로그인 아님', r.data.needsOnboarding===true && !a.API.getToken());
+  ok('1.2-2 토큰발급','재발급된 토큰으로 교체', a.Store.tokens().onboardingToken==='OTK2');
+}
+
+/* ── 1.6 내 정보 조회 ── */
+{
+  const ME={status:200,json:{success:true,data:{userId:'u_1001',nickname:'닉임',
+    profileImageUrl:'https://x/y.png',pointBalance:1200,
+    interestCategories:['NUTRITION_SUPPLEMENT','COSMETICS'],ageGroup:'AGE_50S',
+    gender:'FEMALE',createdAt:'2026-01-10T09:00:00Z'},error:null}};
+  const a=makeApi((u)=>authed(u) || (/users\/me$/.test(u)?ME:{status:404,json:{}}));
+  await a.API.login({userId:'u',password:'p'});
+  const r=await a.API.getMe();
+  const c=a.calls.find(x=>/users\/me$/.test(x.url));
+  ok('1.6 내정보','URL', c && c.url===B+'/users/me', c&&c.url);
+  ok('1.6 내정보','GET + Authorization', c.method==='GET' && c.headers.Authorization==='Bearer ACC');
+  ok('1.6 내정보','pointBalance 파싱', r.data.pointBalance===1200);
+  ok('1.6 내정보','interestCategories → 한글', r.data.interests.join(',')==='건강/면역,미용/화장품', r.data.interests.join(','));
+  ok('1.6 내정보','로그인하면 자동 호출', a.calls.filter(x=>/users\/me$/.test(x.url)).length>=1);
+  ok('1.6 내정보','닉네임을 기기에 반영', a.Store.current().profile.nickname==='닉임');
+}
+{
+  const a=makeApi((u)=>authed(u) || {status:500,json:{success:false,data:null,error:null}});
+  const r=await a.API.login({userId:'u',password:'p'});
+  ok('1.6 내정보','실패해도 로그인은 유지', r.ok===true && a.API.getToken()==='ACC');
+}
+
+/* ── 1.7 내 정보 수정 ── */
+{
+  const ME={status:200,json:{success:true,data:{userId:'u_1001',nickname:'닉임',pointBalance:0,
+    interestCategories:[],ageGroup:null,gender:null},error:null}};
+  const OKRES={status:200,json:{success:true,data:{userId:'u_1001',nickname:'새닉네임',
+    profileImageUrl:'https://...'},error:null}};
+  const a=makeApi((u)=>authed(u) || (/users\/me$/.test(u)?ME:OKRES));
+  await a.API.login({userId:'u',password:'p'});
+  a.calls.length=0;
+  const r=await a.API.updateMe({nickname:'새닉네임'});
+  const c=a.calls[0];
+  ok('1.7 내정보수정','URL', c && c.url===B+'/users/me/nickname', c&&c.url);
+  ok('1.7 내정보수정','PATCH + Authorization', c.method==='PATCH' && c.headers.Authorization==='Bearer ACC');
+  ok('1.7 내정보수정','바꿀 것만 보냄', Object.keys(c.body).join(',')==='nickname', Object.keys(c.body).join(','));
+  ok('1.7 내정보수정','응답 닉네임 반영', r.ok && a.Store.current().profile.nickname==='새닉네임');
+}
+{
+  const ME={status:200,json:{success:true,data:{userId:'u',nickname:'n',pointBalance:0,interestCategories:[]},error:null}};
+  const a=makeApi((u)=>authed(u) || (/users\/me$/.test(u)?ME:{status:400,json:{success:false,data:null,error:null}}));
+  await a.API.login({userId:'u',password:'p'});
+  const r=await a.API.updateMe({nickname:'겹침'});
+  ok('1.7 내정보수정','400 → 닉네임 칸에 표시', r.code==='NICKNAME_REJECTED' && r.field==='nickname', r.code);
+}
+
 /* ── 2.1 온보딩 ── */
 {
   const a=makeApi((u)=>authed(u) || {status:201,json:{success:true,data:{interestCategories:['NUTRITION_SUPPLEMENT','COSMETICS'],ageGroup:'AGE_50S',gender:'FEMALE',onboardingCompleted:true},error:null}});
@@ -385,7 +485,10 @@ const B='http://localhost:8080/api';
   };
   const sample=[{type:'EARN',reason:'FEED_POST',amount:50,createdAt:'2026-08-10T09:00:00Z'},
                 {type:'EARN',reason:'DAILY_LOGIN',amount:10,createdAt:'2026-08-09T01:00:00Z'}];
-  const a=makeApi((u)=>authed(u) || (/points\/history/.test(u)?pageOf(sample)(u):{status:404,json:{}}));
+  const meRes={status:200,json:{success:true,data:{userId:'u',nickname:'n',pointBalance:60,
+    interestCategories:[],ageGroup:null,gender:null},error:null}};
+  const a=makeApi((u)=>authed(u) || (/users\/me$/.test(u)?meRes
+    : /points\/history/.test(u)?pageOf(sample)(u):{status:404,json:{}}));
   await a.API.login({userId:'u',password:'p'});
   const r=await a.API.getPointHistory({page:2,size:5});
   const c=a.calls.find(x=>/points/.test(x.url));
@@ -398,7 +501,7 @@ const B='http://localhost:8080/api';
   ok('7.2 포인트내역','reason 코드 → 화면 문구', r1.data.items[0].label==='공유 카드 게시', r1.data.items[0].label);
   ok('7.2 포인트내역','EARN/USE 부호', r1.data.items[0].signed===50);
   const s2=await a.API.getPointSummary();
-  ok('7.2 포인트내역','누적 포인트 합산', s2.data.total===60, String(s2.data.total));
+  ok('7.2 포인트내역','잔액은 1.6 값을 그대로 (내역 안 훑음)', s2.data.total===60, String(s2.data.total));
 }
 {
   const a=makeApi((u)=>authed(u) || {status:500,json:{success:false,data:null,error:null}});
@@ -420,6 +523,8 @@ const B='http://localhost:8080/api';
   const a=makeApi((u)=>{
     if(u.endsWith('/auth/login')) return {status:200,json:{success:true,data:TOK,error:null}};
     if(u.endsWith('/auth/refresh')) return {status:200,json:{success:true,data:{accessToken:'ACC2',refreshToken:'REF2'},error:null}};
+    // 로그인 직후 자동으로 부르는 /users/me 는 세지 않습니다 (판정 조회만 봅니다)
+    if(/users\/me$/.test(u)) return {status:200,json:{success:true,data:{userId:'u',nickname:'n',pointBalance:0,interestCategories:[]},error:null}};
     return (++n===1)?{status:401,json:{success:false,data:null,error:null}}:{status:200,json:{success:true,data:{judgmentId:1,status:'DONE',trustLevel:'PENDING'},error:null}};
   });
   await a.API.login({userId:'u',password:'p'});

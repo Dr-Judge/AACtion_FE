@@ -2,16 +2,13 @@
    Dr.Judge — 목업 데이터 (API 연동 시 이 파일만 교체)
    ============================================ */
 
-/* categoryId → 화면 문구.
-   서버 categories 테이블의 id 를 그대로 씁니다 (2026.08.19 확인).
-   0번은 화면 전용(전체 보기)이라 서버에는 없습니다. */
 const CATEGORIES = [
-  '전체 카테고리', // 0 — 화면 전용
-  '영양제·건강기능식품', // 1 NUTRITION
-  '다이어트·체중관리', // 2 DIET
-  '질환·증상관리', // 3 DISEASE_CARE
-  '화장품', // 4 COSMETICS
-  '시술·피부관리', // 5 PROCEDURE_SKINCARE
+  '전체 카테고리',
+  '다이어트',
+  '미용/화장품',
+  '건강/면역',
+  '질환·증상관리',
+  '기타',
 ];
 
 const BRIEFINGS = [
@@ -292,28 +289,24 @@ const BRIEFING_TODAY = {
    온보딩 선택지 — 화면 문구 ↔ 서버 값
    서버 enum 이 확정되면 value 만 고치면 됩니다.
    ============================================ */
-/* 서버 categories 테이블의 code 와 name 을 그대로 옮긴 것입니다.
-   표에 없는 코드를 보내면 400 CATEGORY_001 이 옵니다
-   (예전 NUTRITION_SUPPLEMENT·ETC 는 서버에 없는 값이었습니다). */
 const INTEREST_OPTIONS = [
-  { label: '영양제·건강기능식품', value: 'NUTRITION' },
-  { label: '다이어트·체중관리', value: 'DIET' },
-  { label: '질환·증상관리', value: 'DISEASE_CARE' },
-  { label: '화장품', value: 'COSMETICS' },
-  { label: '시술·피부관리', value: 'PROCEDURE_SKINCARE' },
+  { label: '다이어트', value: 'DIET' },
+  { label: '미용/화장품', value: 'COSMETICS' },
+  { label: '건강/면역', value: 'NUTRITION_SUPPLEMENT' },
+  { label: '기타', value: 'ETC' },
 ];
 
 const AGE_OPTIONS = [
   { label: '10~24세', value: 'AGE_10S' },
   { label: '25~39세', value: 'AGE_20S' },
   { label: '40~59세', value: 'AGE_40S' },
-  { label: '60세 이상', value: 'AGE_60S_PLUS' },
+  { label: '60세 이상', value: 'AGE_60S' },
 ];
 
 const GENDER_OPTIONS = [
   { label: '여성', value: 'FEMALE' },
   { label: '남성', value: 'MALE' },
-  { label: '기타', value: 'UNKNOWN' },
+  { label: '기타', value: 'OTHER' },
 ];
 
 /* 나이대는 화면 선택지(4구간)와 서버 값(10년 단위)이 아직 안 맞습니다.
@@ -324,8 +317,8 @@ const ageLabelOf = (value) => {
   const known = AGE_OPTIONS.find((o) => o.value === value);
   if (known) return known.label;
 
-  const m = /^AGE_(\d+)S(_PLUS)?$/.exec(value);
-  if (m) return m[2] || m[1] === '60' ? '60세 이상' : m[1] + '대'; // _PLUS 는 항상 '이상'
+  const m = /^AGE_(\d+)S$/.exec(value);
+  if (m) return m[1] === '60' ? '60세 이상' : m[1] + '대';
   return value;
 };
 

@@ -13,11 +13,21 @@
   }
 
   const p = me.profile;
-  document.getElementById('nickValue').textContent = p.nickname;
+  const nickEl = document.getElementById('nickValue');
+  const interestEl = document.getElementById('interestValue');
+
+  nickEl.textContent = p.nickname;
   document.getElementById('mailValue').textContent = p.email || '—';
 
-  const list = p.interests || (p.interest ? [p.interest] : []);
-  document.getElementById('interestValue').textContent = list.length
-    ? list.join(', ')
-    : '미설정';
+  const show = (list) =>
+    (interestEl.textContent = list && list.length ? list.join(', ') : '미설정');
+
+  show(p.interests || (p.interest ? [p.interest] : []));
+
+  /* 저장된 값을 먼저 보여주고, 서버 값(1.6)이 오면 바꿉니다 */
+  API.syncProfile().then((res) => {
+    if (!res.ok) return;
+    if (res.data.nickname) nickEl.textContent = res.data.nickname;
+    show(res.data.interests);
+  });
 })();

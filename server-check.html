@@ -71,13 +71,25 @@ public class CorsConfig implements WebMvcConfigurer {
       <p><b>임시 우회</b> — 급하면 프론트를 8080 과 같은 출처에서 열면 됩니다. 다만 정식 해결은 위 설정이에요.</p>
     </div>
 
+    <div class="card">
+      <div class="row"><span class="name">4. 서버가 쓰는 enum 값</span><span class="state wait" id="s4">확인 중…</span></div>
+      <div class="detail" id="d4">
+        나이대·성별·관심분야에 어떤 값을 보내야 하는지 Swagger 문서에서 직접 읽어옵니다.
+      </div>
+      <pre class="hide" id="enumOut"></pre>
+    </div>
+
     <div class="fix hide" id="fixOk">
       <h2>연결 정상입니다</h2>
       <p>회원가입·로그인이 실제로 동작합니다. 판정은 AI 서비스(8000)가 따로 떠 있어야 결과가 나옵니다.</p>
     </div>
 
     <script>
-      const BASE = 'http://' + (location.hostname || 'localhost') + ':8080/api';
+      /* serve.js 로 열었으면 같은 주소의 /api 를 씁니다 */
+      const SAME_ORIGIN = window.__SAME_ORIGIN_API === true;
+      const BASE = SAME_ORIGIN
+        ? '/api'
+        : 'http://' + (location.hostname || 'localhost') + ':8080/api';
       document.getElementById('originVal').textContent = location.origin;
       document.getElementById('baseVal').textContent = BASE;
       document.getElementById('corsOrigin').textContent = location.origin;
@@ -129,6 +141,76 @@ public class CorsConfig implements WebMvcConfigurer {
           show('fixCors');
         }
       })();
-    </script>
+    
+      /* ---------- 4. 서버 enum 값 읽어오기 ----------
+         Swagger 가 만들어 주는 /v3/api-docs 안에 enum 목록이 그대로 들어 있습니다.
+         여기서 나이대·성별·관심분야에 실제로 어떤 값을 보내야 하는지 확인할 수 있어요. */
+      (async () => {
+        const s4 = document.getElementById('s4');
+        const d4 = document.getElementById('d4');
+        const out = document.getElementById('enumOut');
+
+        const roots = SAME_ORIGIN ? ['/api'] : [BASE.replace('/api', '')];
+        let doc = null;
+
+        for (const root of roots) {
+          for (const path of ['/v3/api-docs', '/api-docs', '/v2/api-docs']) {
+            try {
+              const res = await fetch(root + path);
+              if (!res.ok) continue;
+              doc = await res.json();
+              break;
+            } catch (e) {
+              /* 다음 후보로 */
+            }
+          }
+          if (doc) break;
+        }
+
+        if (!doc) {
+          s4.textContent = '못 읽음';
+          s4.className = 'state warn';
+          d4.innerHTML =
+            'Swagger 문서를 못 읽었습니다. 서버가 떠 있으면 ' +
+            '<code>http://localhost:8080/v3/api-docs</code> 를 직접 열어 <b>AGE_</b> 로 검색해 보세요.';
+          return;
+        }
+
+        /* 스키마를 훑어 enum 이 들어 있는 것만 모읍니다 */
+        const schemas = (doc.components && doc.components.schemas) || {};
+        const found = [];
+
+        const walk = (name, node) => {
+          if (!node || typeof node !== 'object') return;
+          if (Array.isArray(node.enum) && node.enum.length) {
+            found.push({ name, values: node.enum });
+            return;
+          }
+          Object.entries(node.properties || {}).forEach(([k, v]) => walk(name + '.' + k, v));
+        };
+        Object.entries(schemas).forEach(([k, v]) => walk(k, v));
+
+        /* 우리가 궁금한 것부터 위로 */
+        const wanted = /age|gender|category|interest|성별|나이/i;
+        found.sort((a, b) => (wanted.test(b.name) ? 1 : 0) - (wanted.test(a.name) ? 1 : 0));
+
+        if (!found.length) {
+          s4.textContent = 'enum 없음';
+          s4.className = 'state warn';
+          d4.textContent = '문서는 읽었지만 enum 목록이 안 보입니다.';
+          return;
+        }
+
+        s4.textContent = found.length + '개 찾음';
+        s4.className = 'state ok';
+        d4.innerHTML =
+          '아래 값을 알려주시면 <code>data.js</code> 의 표를 서버와 똑같이 맞추겠습니다. ' +
+          '특히 <b>AGE_</b> 로 시작하는 줄이 중요합니다.';
+        out.className = '';
+        out.textContent = found
+          .map((f) => f.name + '\n  ' + f.values.join(', '))
+          .join('\n\n');
+      })();
+</script>
   </body>
 </html>

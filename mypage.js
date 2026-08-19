@@ -29,8 +29,14 @@
     return;
   }
 
-  /* ---------- 프로필 ---------- */
-  document.getElementById('myNickname').textContent = me.profile.nickname;
+  /* ---------- 프로필 ----------
+     저장된 값을 먼저 보여주고, 서버 값(1.6)이 오면 조용히 바꿉니다. */
+  const nickEl = document.getElementById('myNickname');
+  nickEl.textContent = me.profile.nickname;
+
+  API.syncProfile().then((res) => {
+    if (res.ok && res.data.nickname) nickEl.textContent = res.data.nickname;
+  });
 
   /* ---------- 탭 전환 ---------- */
   const tabs = document.getElementById('myTabs');
@@ -99,6 +105,7 @@
     }
 
     pointItems = res.data.items;
+    // 잔액은 1.6 이 주는 값이라 그대로 씁니다 (내역을 더할 필요 없음)
     pointValue.textContent = num(res.data.total) + 'P' + (res.data.exact ? '' : '+');
     renderPoints();
   }

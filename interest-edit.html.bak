@@ -29,11 +29,10 @@
         <p class="picker__label">여러 개 고를 수 있어요</p>
 
         <div class="optlist" id="interestList">
-          <button type="button" class="optlist__opt" data-value="영양제·건강기능식품">영양제·건강기능식품</button>
-          <button type="button" class="optlist__opt" data-value="다이어트·체중관리">다이어트·체중관리</button>
-          <button type="button" class="optlist__opt" data-value="질환·증상관리">질환·증상관리</button>
-          <button type="button" class="optlist__opt" data-value="화장품">화장품</button>
-          <button type="button" class="optlist__opt" data-value="시술·피부관리">시술·피부관리</button>
+          <button type="button" class="optlist__opt" data-value="다이어트">다이어트</button>
+          <button type="button" class="optlist__opt" data-value="미용/화장품">미용/화장품</button>
+          <button type="button" class="optlist__opt" data-value="건강/면역">건강/면역</button>
+          <button type="button" class="optlist__opt" data-value="기타">기타</button>
         </div>
 
         <p class="nick__error" id="interestError" hidden>

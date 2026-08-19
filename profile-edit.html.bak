@@ -41,7 +41,7 @@
           <a href="./nickname-edit.html" class="fieldrow fieldrow--link">
             <span class="fieldrow__text">
               <span class="fieldrow__label">닉네임</span>
-              <b class="fieldrow__value" id="nickValue"></b>
+              <b class="fieldrow__value" id="nickValue">마라탕후루이비똥</b>
             </span>
             <span class="fieldrow__arrow" aria-hidden="true"></span>
           </a>

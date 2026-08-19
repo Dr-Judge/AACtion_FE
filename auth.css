@@ -117,3 +117,35 @@
   object-fit: contain;
 }
 
+
+
+/* ---------- 카카오 ---------- */
+.btn--kakao {
+  margin-top: 10px;
+  background: #fee500;
+  color: #191600;
+  border: none;
+}
+.btn--kakao:active {
+  background: #f2da00;
+}
+.btn--kakao svg {
+  width: 17px;
+  height: 17px;
+  margin-right: 6px;
+  vertical-align: -3px;
+}
+.btn--kakao[aria-disabled='true'] {
+  opacity: 0.5;
+}
+
+/* 카카오에서 돌아오는 화면 */
+.kakao__msg {
+  margin-top: 18px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--gray-700);
+}
+.kakao__retry {
+  margin-top: 18px;
+}

@@ -4,6 +4,12 @@
    ============================================ */
 
 (function () {
+  /* 카카오로 들어온 사람은 이름·아이디·비밀번호가 필요 없습니다.
+     ?mode=onboarding 으로 오면 3·4단계(성별·연령대 → 관심분야)만 받습니다. */
+  const ONBOARDING_ONLY =
+    new URLSearchParams(location.search).get('mode') === 'onboarding';
+
+  const FIRST_STEP = ONBOARDING_ONLY ? 3 : 1;
   const TOTAL_STEPS = 4;
 
   const progress = document.getElementById('progress');
@@ -45,7 +51,14 @@
 
   initPasswordToggles(step2El);
 
-  agree.addEventListener('change', () => form2.updateSubmit());
+  agree.addEventListener('change', () => {
+    alert2.hidden = true; // 조건을 고치면 이전 오류 문구는 치웁니다
+    form2.updateSubmit();
+  });
+
+  // 입력을 고치는 동안 지난 오류가 남아 있으면 헷갈립니다
+  step2El.addEventListener('input', () => (alert2.hidden = true));
+  step1El.addEventListener('input', () => (alert1.hidden = true));
 
   /* ---------- 단계 이동 ---------- */
   function goStep(n) {
@@ -54,13 +67,17 @@
     step2El.hidden = n !== 2;
     step3El.hidden = n !== 3;
     step4El.hidden = n !== 4;
-    progressBar.style.width = `${(n / TOTAL_STEPS) * 100}%`;
+
+    /* 온보딩만 받을 때는 두 칸이 전부라, 진행 막대도 두 칸 기준으로 그립니다 */
+    const done = ONBOARDING_ONLY ? n - 2 : n;
+    const total = ONBOARDING_ONLY ? 2 : TOTAL_STEPS;
+    progressBar.style.width = `${(done / total) * 100}%`;
     progress.setAttribute('aria-valuenow', String(n));
     window.scrollTo(0, 0);
   }
 
   backBtn.addEventListener('click', () => {
-    if (step === 1) location.href = './start.html';
+    if (step === FIRST_STEP) location.href = './start.html';
     else goStep(step - 1);
   });
 
@@ -189,6 +206,33 @@
       alert4.hidden = false;
       return;
     }
+
+    /* 카카오로 들어온 사람은 아직 토큰이 없습니다.
+       온보딩을 저장한 다음 여기서 로그인이 마무리됩니다(1.2-2). */
+    if (ONBOARDING_ONLY) {
+      setLoading(doneBtn, true, '로그인 중…');
+      const fin = await API.kakaoComplete();
+      setLoading(doneBtn, false, '완료');
+
+      if (!fin.ok) {
+        alert4.textContent =
+          fin.code === 'ONBOARDING_TOKEN_EXPIRED'
+            ? '인증 시간이 지났어요. 카카오 로그인을 다시 해주세요.'
+            : fin.text;
+        alert4.hidden = false;
+        return;
+      }
+
+      /* 200 인데도 아직 온보딩이 안 끝났다고 오는 경우가 있습니다(1.2-2).
+         토큰이 없으면 로그인이 안 된 상태라 넘어가면 안 됩니다.
+         새 onboardingToken 은 이미 받아 뒀으니 다시 누르면 됩니다. */
+      if (fin.data.needsOnboarding) {
+        alert4.textContent = '저장이 끝나지 않았어요. 한 번만 더 눌러 주세요.';
+        alert4.hidden = false;
+        return;
+      }
+    }
+
     location.href = './welcome.html';
   });
 
@@ -258,5 +302,11 @@
     (btn === nextBtn ? form1 : form2).updateSubmit();
   }
 
-  goStep(1);
+  if (ONBOARDING_ONLY) {
+    // 카카오로 들어온 사람은 '가입 정보'를 낸 적이 없으니 문구를 바꿔 줍니다
+    document.getElementById('stepTitle').innerHTML =
+      '몇 가지만 알려주시면<br />바로 시작할 수 있어요';
+  }
+
+  goStep(FIRST_STEP);
 })();

@@ -56,7 +56,7 @@
           data-fallback="character"
         />
         <div class="profile2__info">
-          <p class="profile2__name" id="myNickname"></p>
+          <p class="profile2__name" id="myNickname">마라탕후루이비똥</p>
           <a href="./profile-edit.html" class="profile2__edit">내 정보 수정</a>
         </div>
       </section>

@@ -1,6 +1,8 @@
 /* ============================================
    Dr.Judge — 판정 탭 (허브)
-   최근 판정은 로그인한 계정의 이력에서 읽습니다.
+   최근 판정은 서버에서 읽습니다 (GET /api/judgments).
+   예전에는 Store 안의 history 를 읽었는데, 그 값은 어디에서도
+   채워지지 않는 목업 잔재라 화면이 통째로 죽었습니다.
    ============================================ */
 
 (function () {
@@ -12,22 +14,20 @@
         ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c],
     );
 
-  const me = Store.current();
-  const history = me ? me.history.slice(0, 3) : [];
-
-  if (!history.length) {
+  /* 판정 이력이 없을 때 — 로그인 여부에 따라 문구만 다릅니다 */
+  function renderEmpty(loggedIn) {
     list.innerHTML = `
       <li class="empty">
-        <p class="empty__title">${me ? '아직 판정한 내역이 없어요' : '로그인하면 판정 이력이 쌓여요'}</p>
+        <p class="empty__title">${loggedIn ? '아직 판정한 내역이 없어요' : '로그인하면 판정 이력이 쌓여요'}</p>
         <p class="empty__desc">위에서 판정 방식을 골라 시작해 보세요.</p>
       </li>`;
-    return;
   }
 
-  list.innerHTML = history
-    .map((h) => {
-      const s = HISTORY_STATUS[h.status] || HISTORY_STATUS.vague;
-      return `
+  function renderList(items) {
+    list.innerHTML = items
+      .map((h) => {
+        const s = HISTORY_STATUS[h.status] || HISTORY_STATUS.vague;
+        return `
       <li class="judgecard">
         <div class="judgecard__top">
           <span class="chip">${esc(h.category)}</span>
@@ -36,6 +36,22 @@
         </div>
         <h3 class="judgecard__title">${esc(h.title)}</h3>
       </li>`;
-    })
-    .join('');
+      })
+      .join('');
+  }
+
+  if (!Store.isLoggedIn()) {
+    renderEmpty(false);
+    return;
+  }
+
+  (async () => {
+    /* 서버가 잠깐 안 되더라도 판정 방식 카드는 그대로 쓸 수 있어야 하므로,
+       실패하면 오류를 띄우지 않고 '내역 없음'으로 둡니다. */
+    const res = await API.getJudgmentHistory({ page: 1, size: 3 });
+    const items = res.ok && res.data ? res.data.items || [] : [];
+
+    if (!items.length) renderEmpty(true);
+    else renderList(items);
+  })();
 })();
