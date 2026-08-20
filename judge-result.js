@@ -95,7 +95,9 @@
     /* 주장 · 상태 · 분류 */
     const claimEl = document.getElementById('claimText');
     claimEl.innerHTML = formatClaim(r.claim) || '판정 결과';
-    claimEl.title = r.claim || ''; // 길게 눌러보면(hover) 원문 전체 확인 가능
+    /* 카드에는 서버가 뽑아준 짧은 주장(title)을 보여주고,
+       입력 원문 전체(extractedText)는 hover 로 확인할 수 있게 둡니다. */
+    claimEl.title = r.fullText || r.claim || '';
 
     document.getElementById('stateChip').textContent =
       r.status === 'DONE' || !r.status ? '판정 완료' : '판정 중';

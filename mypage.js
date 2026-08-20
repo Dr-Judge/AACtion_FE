@@ -4,12 +4,17 @@
    ============================================ */
 
 (function () {
-
   const esc = (s) =>
     String(s).replace(
       /[&<>"']/g,
       (c) =>
-        ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c],
+        ({
+          '&': '&amp;',
+          '<': '&lt;',
+          '>': '&gt;',
+          '"': '&quot;',
+          "'": '&#39;',
+        })[c],
     );
   const num = (n) => n.toLocaleString('ko-KR');
 
@@ -106,7 +111,8 @@
 
     pointItems = res.data.items;
     // 잔액은 1.6 이 주는 값이라 그대로 씁니다 (내역을 더할 필요 없음)
-    pointValue.textContent = num(res.data.total) + 'P' + (res.data.exact ? '' : '+');
+    pointValue.textContent =
+      num(res.data.total) + 'P' + (res.data.exact ? '' : '+');
     renderPoints();
   }
 
@@ -119,7 +125,9 @@
   pointAll.addEventListener('click', () => {
     pointShown = pointItems.length;
     renderPoints();
-    document.getElementById('pointLogTitle').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    document
+      .getElementById('pointLogTitle')
+      .scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
 
   loadPoints();
@@ -141,7 +149,7 @@
     );
     const suffix = histHasNext ? '+' : '';
     statRow.innerHTML = `
-      <div class="statrow__item"><b>${histItems.length}${suffix}</b><span>전체 판정</span></div>
+      <div class="statrow__item"><b>${histItems.length}${suffix}</b><span>전체</span></div>
       <div class="statrow__item is-fit"><b>${counts.fit || 0}</b><span>적합</span></div>
       <div class="statrow__item is-vague"><b>${counts.vague || 0}</b><span>애매</span></div>
       <div class="statrow__item is-unfit"><b>${counts.unfit || 0}</b><span>부적합</span></div>`;
@@ -167,7 +175,10 @@
       </li>`;
           })
           .join('')
-      : empty('아직 판정한 내역이 없어요', '판정 탭에서 궁금한 정보를 확인해 보세요.');
+      : empty(
+          '아직 판정한 내역이 없어요',
+          '판정 탭에서 궁금한 정보를 확인해 보세요.',
+        );
 
     hist.querySelectorAll('.hitem[data-result]').forEach((el) => {
       if (!el.dataset.result) return;
@@ -263,6 +274,15 @@
 
     myCards.querySelectorAll('[data-del]').forEach((btn) => {
       btn.addEventListener('click', () => openRevoke(btn.dataset.del));
+    });
+
+    /* '공유 카드 보기' — 상세 API 가 없어서, 넘어가기 전에 이 카드의 내용을
+       담아 둡니다. 담지 않으면 상세 화면이 예시 카드를 보여 줍니다. */
+    myCards.querySelectorAll('.mycard__view').forEach((a) => {
+      a.addEventListener('click', () => {
+        const id = a.closest('.mycard').dataset.id;
+        FeedHandoff.set(cardItems.find((c) => String(c.id) === id));
+      });
     });
 
     cardsMore.hidden = cardPage >= cardTotal;

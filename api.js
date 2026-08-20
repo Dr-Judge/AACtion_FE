@@ -29,7 +29,8 @@ const API = (() => {
      서버가 HTML 에 표시를 심어 주므로 포트가 몇이든 알아서 잡힙니다. */
   const SAME_ORIGIN =
     !FORCE_SERVER &&
-    (window.__SAME_ORIGIN_API === true || /[?&]api=same\b/.test(location.search));
+    (window.__SAME_ORIGIN_API === true ||
+      /[?&]api=same\b/.test(location.search));
 
   /* ---------- API 주소 결정 ----------
      위에서부터 먼저 맞는 것이 적용됩니다.
@@ -70,8 +71,6 @@ const API = (() => {
   };
 
   const live = (key) => LIVE[key] === true;
-
-
 
   /* ---------- 서버 에러코드 → 화면 오류 문구 ----------
      서버는 { code, message } 형태로 내려준다고 가정합니다.
@@ -158,7 +157,10 @@ const API = (() => {
       field: null,
       text: '판정이 오래 걸리고 있어요. 잠시 후 판정 이력에서 확인해 주세요.',
     },
-    SERVER_ERROR: { field: null, text: '서버에 문제가 생겼어요. 잠시 후 다시 시도해 주세요.' },
+    SERVER_ERROR: {
+      field: null,
+      text: '서버에 문제가 생겼어요. 잠시 후 다시 시도해 주세요.',
+    },
     NETWORK_ERROR: { field: null, text: '네트워크 연결을 확인해 주세요.' },
     /* serve.py / serve.js 가 백엔드에 못 닿을 때 돌려주는 코드입니다.
        이게 보이면 프론트는 정상이고 백엔드만 안 떠 있는 것입니다. */
@@ -170,7 +172,11 @@ const API = (() => {
   };
 
   function toError(code) {
-    return { ok: false, code, ...(ERROR_MESSAGE[code] || ERROR_MESSAGE.UNKNOWN) };
+    return {
+      ok: false,
+      code,
+      ...(ERROR_MESSAGE[code] || ERROR_MESSAGE.UNKNOWN),
+    };
   }
 
   /* ---------- 공통 fetch ----------
@@ -191,8 +197,16 @@ const API = (() => {
   };
 
   async function request(path, opts = {}) {
-    const { method = 'GET', body, auth = true, statusMap, noRetry, own401, keepalive, _retried } =
-      opts;
+    const {
+      method = 'GET',
+      body,
+      auth = true,
+      statusMap,
+      noRetry,
+      own401,
+      keepalive,
+      _retried,
+    } = opts;
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), TIMEOUT);
 
@@ -201,7 +215,9 @@ const API = (() => {
         method,
         headers: {
           'Content-Type': 'application/json',
-          ...(auth && getToken() ? { Authorization: `Bearer ${getToken()}` } : {}),
+          ...(auth && getToken()
+            ? { Authorization: `Bearer ${getToken()}` }
+            : {}),
         },
         body: body ? JSON.stringify(body) : undefined,
         signal: controller.signal,
@@ -221,7 +237,14 @@ const API = (() => {
       }
 
       // 액세스 토큰이 만료된 경우 → 한 번만 재발급 후 다시 시도
-      if (res.status === 401 && auth && !noRetry && !own401 && !_retried && getRefreshToken()) {
+      if (
+        res.status === 401 &&
+        auth &&
+        !noRetry &&
+        !own401 &&
+        !_retried &&
+        getRefreshToken()
+      ) {
         const again = await refresh();
         if (again.ok) return request(path, { ...opts, _retried: true });
         return toError('SESSION_EXPIRED');
@@ -243,7 +266,10 @@ const API = (() => {
       }
 
       // data 가 있으면 data 만, 없으면 전체를 돌려줍니다
-      return { ok: true, data: json.data !== undefined && json.data !== null ? json.data : json };
+      return {
+        ok: true,
+        data: json.data !== undefined && json.data !== null ? json.data : json,
+      };
     } catch (e) {
       // 무엇 때문에 실패했는지 콘솔에 남깁니다.
       // fetch 가 던지는 오류는 CORS 차단과 서버 다운을 구분해주지 않아서,
@@ -282,7 +308,9 @@ const API = (() => {
       refreshToken,
       // 새로 주지 않으면 갖고 있던 값을 유지합니다
       onboardingToken:
-        onboardingToken !== undefined ? onboardingToken : Store.tokens().onboardingToken,
+        onboardingToken !== undefined
+          ? onboardingToken
+          : Store.tokens().onboardingToken,
     });
   }
   const getOnboardingToken = () => Store.tokens().onboardingToken || null;
@@ -311,7 +339,11 @@ const API = (() => {
       if (!res.ok) return res;
 
       // onboardingToken 은 지금 응답에 없지만, 생기면 그대로 받아 둡니다 (2.1 에서 씀)
-      setTokens(res.data.accessToken, res.data.refreshToken, res.data.onboardingToken);
+      setTokens(
+        res.data.accessToken,
+        res.data.refreshToken,
+        res.data.onboardingToken,
+      );
 
       // 이 기기의 프로필 자리를 열고, 서버 값으로 맞춥니다(1.6)
       Store.signIn(userId);
@@ -543,8 +575,10 @@ const API = (() => {
   /**
    * 내 정보 조회 (1.6)
    *   GET /api/users/me
-   *   응답  200 { userId, nickname, profileImageUrl, pointBalance,
-   *              interestCategories:[...], ageGroup, gender, createdAt }
+   *   응답  200 { nickname, email, pointBalance, interestCategoryCodes:[...] }
+   *         (배포 서버 /v3/api-docs 기준 — 필드 이름이 interestCategories 가
+   *          아니라 interestCategoryCodes 입니다. 이걸 잘못 읽어서 관심분야가
+   *          늘 '미설정' 으로 보였습니다.)
    *         401 인증 / 500 서버 오류
    *
    * 로그인 직후에 한 번 불러 이 기기의 프로필을 서버 값으로 맞춥니다.
@@ -580,11 +614,21 @@ const API = (() => {
       data: {
         userId: d.userId,
         nickname: d.nickname || '',
+        /* 1.6 응답에 email 이 들어 있는데 안 읽고 있었습니다.
+           안 읽으면 가입 때 저장해 둔 값이 없는 기기에서 '—' 로 보입니다. */
+        email: d.email || null,
         profileImageUrl: d.profileImageUrl || null,
         pointBalance: Number(d.pointBalance) || 0,
-        email: d.email || null,
-       interests: Array.isArray(d.interestCategoryCodes)
-          ? d.interestCategoryCodes.map((v) => valueToLabel(INTEREST_OPTIONS, v))
+        /* 서버 enum → 화면 문구.
+           서버가 주는 이름은 interestCategoryCodes 입니다. 예전 이름도 함께
+           받아 둡니다. 아예 안 왔을 때는 빈 배열이 아니라 undefined 로 둬야
+           이 기기에 저장돼 있던 관심분야가 지워지지 않습니다. */
+        interests: Array.isArray(
+          d.interestCategoryCodes || d.interestCategories,
+        )
+          ? (d.interestCategoryCodes || d.interestCategories).map((v) =>
+              valueToLabel(INTEREST_OPTIONS, v),
+            )
           : undefined,
         ageRange: ageLabelOf(d.ageGroup),
         gender: d.gender ? valueToLabel(GENDER_OPTIONS, d.gender) : null,
@@ -605,7 +649,8 @@ const API = (() => {
   async function updateMe(patch = {}) {
     const body = {};
     if (patch.nickname !== undefined) body.nickname = patch.nickname;
-    if (patch.profileImageUrl !== undefined) body.profileImageUrl = patch.profileImageUrl;
+    if (patch.profileImageUrl !== undefined)
+      body.profileImageUrl = patch.profileImageUrl;
 
     if (!Object.keys(body).length) return toError('INVALID_INPUT');
 
@@ -739,7 +784,8 @@ const API = (() => {
     mockCount += 1;
 
     // 입력한 내용을 그대로 판정 대상으로 삼습니다.
-    const claim = payload.text || payload.url || payload.fileName || '판정 요청';
+    const claim =
+      payload.text || payload.url || payload.fileName || '판정 요청';
 
     // 같은 문장은 늘 같은 결과가 나오도록 내용에서 등급을 계산합니다.
     const levels =
@@ -770,24 +816,56 @@ const API = (() => {
     NO_EVIDENCE: 'lack',
     COUNTER_EVIDENCE: 'refuted',
   };
+  /* 공유 조회(9.3)는 guideCard 를 객체가 아니라 JSON '문자열'(guideCardJson)로 줍니다 */
+  function parseGuideCard(json) {
+    if (!json) return null;
+    try {
+      return JSON.parse(json);
+    } catch (e) {
+      console.warn('[API] guideCardJson 을 읽지 못했습니다');
+      return null;
+    }
+  }
+
+  /* trustLevelLabel 이 안 올 때 trustLevel 로 한글 라벨을 만듭니다 */
+  function labelOfTrust(trustLevel) {
+    const key = TRUST_TO_LEVEL[trustLevel];
+    const lv = key && typeof levelOf === 'function' ? levelOf(key) : null;
+    return lv ? lv.name : null;
+  }
+
+  /**
+   * 판정 상세(3.2)와 공유 조회(9.3)를 함께 정리합니다.
+   *
+   * 두 응답의 필드가 다릅니다. 공유 쪽은 작성자 정보를 뺀 축약본이라
+   * 이해상충이 평평하게(conflictDetected/conflictDescription) 오고,
+   * 라벨도 trustLevel 만 옵니다. 한쪽 이름만 읽으면 화면이 비어 버립니다.
+   */
   function normalizeJudgment(d) {
     const coi = d.conflictOfInterest || {};
     return {
-      id: String(d.judgmentId),
-      status: d.status,
-      claim: d.extractedText || '',
+      id: d.judgmentId != null ? String(d.judgmentId) : null,
+      /* 서버 상태값은 PROCESSING | COMPLETED | FAILED 입니다.
+         화면 코드는 예전부터 'DONE' 으로 확인하고 있어서 여기서 맞춰 줍니다.
+         이게 어긋나 있어서 판정이 끝나도 '판정 중' 으로 보이고
+         포인트도 적립되지 않았습니다. */
+      status: d.status === 'COMPLETED' ? 'DONE' : d.status,
+      /* 링크·이미지를 판정하면 extractedText 에 본문이 통째로 들어옵니다.
+         서버가 따로 뽑아 주는 title 이 있으면 그쪽이 읽기 좋습니다. */
+      claim: d.title || d.extractedText || '',
+      fullText: d.extractedText || '',
       inputType: d.inputType,
       categoryId: d.categoryId,
       level: TRUST_TO_LEVEL[d.trustLevel] || null,
-      levelLabel: d.trustLevelLabel || null,
+      levelLabel: d.trustLevelLabel || labelOfTrust(d.trustLevel),
       evidence: d.evidenceSummary || '',
-      conflict: Boolean(coi.detected),
+      conflict: Boolean(coi.detected || d.conflictDetected),
       conflictType: coi.type || null,
       conflictBadge: coi.badgeLabel || '이해상충 가능성',
-      conflictDesc: coi.description || '',
+      conflictDesc: coi.description || d.conflictDescription || '',
       safetyNotice: d.safetyNotice || null,
       sources: Array.isArray(d.sources) ? d.sources : [],
-      guideCard: d.guideCard || null,
+      guideCard: d.guideCard || parseGuideCard(d.guideCardJson),
       createdAt: d.createdAt,
     };
   }
@@ -845,7 +923,10 @@ const API = (() => {
       const start = (page - 1) * size;
       return {
         ok: true,
-        data: { items: all.slice(start, start + size), hasNext: all.length > start + size },
+        data: {
+          items: all.slice(start, start + size),
+          hasNext: all.length > start + size,
+        },
       };
     }
 
@@ -861,7 +942,7 @@ const API = (() => {
       return {
         id: String(it.judgmentId),
         title: title.length > 24 ? title.slice(0, 24) + '…' : title,
-        category: it.trustLevelLabel || '기타',
+        category: CATEGORIES[it.categoryId] || '기타',
         categoryId: it.categoryId,
         status: LABEL_TO_HISTORY[it.trustLevelLabel] || 'vague',
         at: formatDate(it.createdAt),
@@ -945,7 +1026,7 @@ const API = (() => {
    * 온보딩 정보 저장 (최초)
    *   POST /api/me/onboarding
    *   요청  { onboardingToken?, interestCategoryCodes:[...], ageGroup, gender }
-   *   응답  201 { interestCategories:[...], ageGroup, gender, onboardingCompleted:true }
+   *   응답  201 { interestCategoryCodes:[...], ageGroup, gender, onboardingCompleted:true }
    *         400 필수 값 누락·형식 오류·카테고리 코드 오류
    *         401 onboardingToken 만료 / 404 토큰 속 사용자 없음 / 500 서버 오류
    *
@@ -996,7 +1077,7 @@ const API = (() => {
   /**
    * 온보딩 정보 수정
    *   PATCH /api/me/onboarding
-   *   요청  { interestCategories?, ageGroup?, gender? }  — 바꿀 것만
+   *   요청  { interestCategoryCodes?, ageGroup?, gender? }  — 바꿀 것만
    *   응답  200 (2.1 과 같은 구조, 수정된 값 반영)
    *
    * 아직 최초 저장 전이면 POST 로 돌립니다.
@@ -1058,7 +1139,10 @@ const API = (() => {
   async function publishToFeed(judgmentId) {
     if (!live('feed')) {
       await delay(80);
-      return { ok: true, data: { postId: 'p_' + Date.now(), status: 'PUBLISHED' } };
+      return {
+        ok: true,
+        data: { postId: 'p_' + Date.now(), status: 'PUBLISHED' },
+      };
     }
 
     return request('/feed/posts', {
@@ -1098,11 +1182,20 @@ const API = (() => {
       return { ok: true, data: { items: all, page: 1, totalPages: 1 } };
     }
 
-    /* 서버에는 '전체 피드' 목록 API 가 없습니다. 있는 것은 내 게시물뿐이라
-       (GET /feed/posts/me) 그쪽을 씁니다. /feed/posts 로 부르면 500 이 옵니다.
-       전체 피드 API 가 생기면 이 두 줄만 되돌리면 됩니다. */
+    /* 배포 서버에 전체 피드(GET /feed/posts)가 생겼습니다.
+       예전에는 이게 500 을 내서 '내 게시물'(/feed/posts/me)로 대신 썼는데,
+       그러면 공유 피드에 내 글만 보입니다. 이제 전체를 먼저 부르고,
+       그게 안 되는 서버에서는 예전처럼 내 게시물로 물러납니다. */
     const q = new URLSearchParams({ page: String(page), size: String(size) });
-    const res = await request(`/feed/posts/me?${q}`);
+
+    let res = await request(`/feed/posts?${q}`);
+    if (!res.ok) {
+      console.warn(
+        '[API] 전체 피드를 못 불러와 내 게시물로 대신합니다 —',
+        res.code,
+      );
+      res = await request(`/feed/posts/me?${q}`);
+    }
     if (!res.ok) return res;
 
     /* 목록에 title·category 가 없어서(6.5), 이 기기에서 올린 글이면
@@ -1225,8 +1318,11 @@ const API = (() => {
           return {
             id: it.postId,
             postId: it.postId,
-            title: local.title || it.summary || '',
-            category: local.category || it.trustLevelLabel || '',
+            /* 서버가 title·category 를 주기 시작했습니다(배포 스펙 기준).
+               예전에는 없어서 이 기기에 저장해 둔 값으로 때웠는데,
+               그 탓에 제목 자리에 요약이, 분야 자리에 신뢰도 라벨이 나왔습니다. */
+            title: it.title || local.title || it.summary || '',
+            category: it.category || local.category || it.trustLevelLabel || '',
             date: formatDate(it.createdAt).split(' · ')[0],
             result: it.trustLevelLabel || '',
             likes: it.likeCount || 0,
@@ -1301,7 +1397,8 @@ const API = (() => {
 
     /* 아직 모르는 코드가 오면 대문자 코드는 감추고 기본 문구를 씁니다.
        (한글 등 이미 사람이 읽을 수 있는 값이면 그대로 보여 줍니다.) */
-    const known = typeof POINT_REASON !== 'undefined' ? POINT_REASON[code] : null;
+    const known =
+      typeof POINT_REASON !== 'undefined' ? POINT_REASON[code] : null;
     const readable = code && !/^[A-Z0-9_]+$/.test(code) ? code : '';
     const label = known || readable || (used ? '포인트 사용' : '포인트 적립');
 
@@ -1415,14 +1512,27 @@ const API = (() => {
   function normalizeBriefing(data, fallbackDate) {
     return {
       date: (data && data.date) || fallbackDate,
-      items: ((data && data.items) || []).map((it) => ({
-        id: it.briefingId,
-        category: valueToLabel(INTEREST_OPTIONS, it.category),
-        levelLabel: it.trustLevelLabel || '',
-        title: it.title || '',
-        summary: it.summary || '',
-        archiveId: it.relatedArchiveId || null,
-      })),
+      /* 서버가 실제로 주는 항목은 { categoryCode, trustLevel, target, effect,
+         evidenceSummary } 입니다. title·summary·trustLevelLabel 이라는 이름은
+         오지 않아서, 그것만 읽으면 카드가 전부 빈 줄로 보였습니다.
+         이름이 바뀌어도 되도록 양쪽을 모두 받습니다. */
+      items: ((data && data.items) || []).map((it, i) => {
+        const title =
+          it.title || [it.target, it.effect].filter(Boolean).join(' · ');
+        return {
+          /* briefingId 가 없는 응답이라, 열람 기록(4.3)에 쓸 id 는 있을 때만 둡니다 */
+          id: it.briefingId != null ? it.briefingId : null,
+          key: it.briefingId != null ? String(it.briefingId) : 'briefing:' + i,
+          category: valueToLabel(
+            INTEREST_OPTIONS,
+            it.category || it.categoryCode,
+          ),
+          levelLabel: it.trustLevelLabel || labelOfTrust(it.trustLevel) || '',
+          title,
+          summary: it.summary || it.evidenceSummary || '',
+          archiveId: it.relatedArchiveId || null,
+        };
+      }),
     };
   }
 
@@ -1439,14 +1549,16 @@ const API = (() => {
       ok: true,
       data: {
         date,
-        items: (typeof FEEDS !== 'undefined' ? FEEDS : []).slice(0, 2).map((f) => ({
-          id: f.id,
-          category: f.category,
-          levelLabel: '판단보류',
-          title: f.title,
-          summary: f.desc,
-          archiveId: null,
-        })),
+        items: (typeof FEEDS !== 'undefined' ? FEEDS : [])
+          .slice(0, 2)
+          .map((f) => ({
+            id: f.id,
+            category: f.category,
+            levelLabel: '판단보류',
+            title: f.title,
+            summary: f.desc,
+            archiveId: null,
+          })),
       },
     };
   }
@@ -1455,8 +1567,12 @@ const API = (() => {
    * 오늘의 브리핑 조회
    *   GET /api/briefings/today
    *   응답  200 { success:true, data:{ date, items:[
-   *              { briefingId, category, trustLevelLabel, title, summary, relatedArchiveId } ] } }
+   *              { categoryCode, trustLevel, target, effect, evidenceSummary } ] } }
    *         401 인증 / 500 서버 오류
+   *
+   * 주의: 명세서(API연동.md)에는 briefingId·title·summary·trustLevelLabel 로
+   * 적혀 있지만, 실제 배포 서버(/v3/api-docs)는 위 필드로 줍니다.
+   * 명세서대로 읽었더니 브리핑 카드가 전부 빈 줄로 나왔습니다.
    *
    * 관심 카테고리와 판정 이력으로 매칭된 오늘의 카드 1~2건이 옵니다.
    */
@@ -1535,7 +1651,11 @@ const API = (() => {
 
     if (!res.ok) {
       openedBriefings.delete(key); // 다음 기회에 다시 시도할 수 있게
-      console.warn('[API] 브리핑 열람 기록 실패 —', res.code, '(화면에는 영향 없음)');
+      console.warn(
+        '[API] 브리핑 열람 기록 실패 —',
+        res.code,
+        '(화면에는 영향 없음)',
+      );
     }
     return res;
   }
@@ -1583,7 +1703,9 @@ const API = (() => {
           clearToken();
           Store.signOut();
           notifySessionExpired();
-          return toError(res.status === 400 ? 'INVALID_INPUT' : 'SESSION_EXPIRED');
+          return toError(
+            res.status === 400 ? 'INVALID_INPUT' : 'SESSION_EXPIRED',
+          );
         }
 
         setTokens(json.data.accessToken, json.data.refreshToken);
@@ -1625,7 +1747,10 @@ const API = (() => {
     if (!id) return toError('SESSION_EXPIRED');
 
     if (live('login')) {
-      const res = await request('/auth/me', { method: 'DELETE', noRetry: true });
+      const res = await request('/auth/me', {
+        method: 'DELETE',
+        noRetry: true,
+      });
       if (!res.ok) return res;
 
       clearToken();
