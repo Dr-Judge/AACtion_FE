@@ -601,12 +601,31 @@
   width: 30px;
   height: 30px;
 }
+.vcard__thumb[hidden] {
+  display: none;
+}
+.vcard__info {
+  flex: 1 1 0%;
+  min-width: 0;
+}
 .vcard__claim {
-  font-size: 17px;
-  font-weight: 800;
-  line-height: 1.35;
-  letter-spacing: -0.5px;
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.6;
+  letter-spacing: -0.2px;
   word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+.vcard__claim-lead {
+  font-weight: 800;
+}
+.vcard__claim-link {
+  display: block;
+  margin-top: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--gray-400);
+  word-break: break-all;
 }
 .vcard__state {
   display: inline-block;
@@ -634,12 +653,20 @@
 /* 결과 줄 */
 .vcard__result {
   display: flex;
-  align-items: center;
+  flex-direction: column;
   gap: 14px;
   margin-top: 16px;
   padding: 14px 16px;
   border: 1px solid var(--gray-200);
   border-radius: 16px;
+}
+.vcard__result-top {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.vcard__result .segbar {
+  margin-top: 2px;
 }
 .vmark {
   flex: 0 0 auto;

@@ -333,7 +333,7 @@ const API = (() => {
      ============================================================ */
 
   /* ↓↓↓ 카카오 개발자센터 > 내 애플리케이션 > 앱 키 > REST API 키 를 붙여넣으세요 ↓↓↓ */
-  const KAKAO_CLIENT_ID = '';
+  const KAKAO_CLIENT_ID = 'a65f9f7d17eb81888aeab8505f3fe564';
 
   /* 비워두면 지금 열려 있는 주소 기준으로 자동으로 만듭니다.
      카카오에 등록한 Redirect URI 와 '글자 하나까지' 같아야 합니다.
@@ -553,19 +553,23 @@ const API = (() => {
   async function getMe(opts = {}) {
     if (!live('profile')) {
       await delay(60);
-      const u = Store.current();
-      if (!u) return toError('SESSION_EXPIRED');
-      return {
-        ok: true,
-        data: {
-          userId: u.profile.userId,
-          nickname: u.profile.nickname,
-          pointBalance: Store.totalPoint(),
-          interests: u.profile.interests || [],
-          ageRange: u.profile.ageRange || null,
-          gender: u.profile.gender || null,
-        },
-      };
+         const d = res.data;
+    return {
+      ok: true,
+      data: {
+        userId: d.userId,
+        nickname: d.nickname || '',
+        profileImageUrl: d.profileImageUrl || null,
+        pointBalance: Number(d.pointBalance) || 0,
+        email: d.email || null,
+        interests: Array.isArray(d.interestCategoryCodes)
+          ? d.interestCategoryCodes.map((v) => valueToLabel(INTEREST_OPTIONS, v))
+          : undefined,
+        ageRange: ageLabelOf(d.ageGroup),
+        gender: d.gender ? valueToLabel(GENDER_OPTIONS, d.gender) : null,
+        createdAt: d.createdAt || null,
+      },
+    };
     }
 
     /* quiet 로 부르면 401 이 와도 세션을 건드리지 않습니다.
@@ -633,7 +637,6 @@ const API = (() => {
     });
     return res;
   }
-
   /**
    * 로그인 직후 프로필 맞추기
    * 실패해도 로그인은 유지합니다 — 이것 때문에 못 들어가면 안 되니까요.
@@ -647,6 +650,7 @@ const API = (() => {
     const d = res.data;
     const patch = {};
     if (d.nickname) patch.nickname = d.nickname;
+    if (d.email) patch.email = d.email;
     if (d.ageRange) patch.ageRange = d.ageRange;
     if (d.gender) patch.gender = d.gender;
     if (Array.isArray(d.interests)) {
