@@ -584,7 +584,7 @@ const API = (() => {
    * 로그인 직후에 한 번 불러 이 기기의 프로필을 서버 값으로 맞춥니다.
    * 그래야 다른 기기에서 봐도 닉네임·관심분야·포인트가 같습니다.
    */
-  async function getMe(opts = {}) {
+    async function getMe(opts = {}) {
     if (!live('profile')) {
       await delay(60);
       const u = Store.current();
@@ -594,16 +594,17 @@ const API = (() => {
         data: {
           userId: u.profile.userId,
           nickname: u.profile.nickname,
+          profileImageUrl: u.profile.profileImageUrl || null,
           pointBalance: Store.totalPoint(),
+          email: u.profile.email || null,
           interests: u.profile.interests || [],
           ageRange: u.profile.ageRange || null,
           gender: u.profile.gender || null,
+          createdAt: u.profile.createdAt || null,
         },
       };
     }
 
-    /* quiet 로 부르면 401 이 와도 세션을 건드리지 않습니다.
-       로그인 직후 프로필을 맞추는 용도라, 이것 때문에 로그아웃되면 안 됩니다. */
     const res = await request('/users/me', opts.quiet ? { own401: true } : {});
     if (!res.ok) return res;
 
@@ -635,7 +636,7 @@ const API = (() => {
       },
     };
   }
-
+ 
   /**
    * 내 정보 수정 (1.7)
    *   PATCH /api/users/me/nickname
@@ -674,7 +675,6 @@ const API = (() => {
     });
     return res;
   }
-
   /**
    * 로그인 직후 프로필 맞추기
    * 실패해도 로그인은 유지합니다 — 이것 때문에 못 들어가면 안 되니까요.
