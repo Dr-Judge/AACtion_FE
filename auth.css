@@ -117,8 +117,6 @@
   object-fit: contain;
 }
 
-
-
 /* ---------- 카카오 ---------- */
 .btn--kakao {
   margin-top: 10px;
@@ -159,7 +157,7 @@
 }
 .auth__or {
   position: relative;
-  margin: 18px 0 12px;
+  margin: 8px 0 0px;
   text-align: center;
 }
 .auth__or::before {

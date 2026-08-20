@@ -29,7 +29,8 @@ const API = (() => {
      서버가 HTML 에 표시를 심어 주므로 포트가 몇이든 알아서 잡힙니다. */
   const SAME_ORIGIN =
     !FORCE_SERVER &&
-    (window.__SAME_ORIGIN_API === true || /[?&]api=same\b/.test(location.search));
+    (window.__SAME_ORIGIN_API === true ||
+      /[?&]api=same\b/.test(location.search));
 
   /* ---------- API 주소 결정 ----------
      위에서부터 먼저 맞는 것이 적용됩니다.
@@ -70,8 +71,6 @@ const API = (() => {
   };
 
   const live = (key) => LIVE[key] === true;
-
-
 
   /* ---------- 서버 에러코드 → 화면 오류 문구 ----------
      서버는 { code, message } 형태로 내려준다고 가정합니다.
@@ -158,7 +157,10 @@ const API = (() => {
       field: null,
       text: '판정이 오래 걸리고 있어요. 잠시 후 판정 이력에서 확인해 주세요.',
     },
-    SERVER_ERROR: { field: null, text: '서버에 문제가 생겼어요. 잠시 후 다시 시도해 주세요.' },
+    SERVER_ERROR: {
+      field: null,
+      text: '서버에 문제가 생겼어요. 잠시 후 다시 시도해 주세요.',
+    },
     NETWORK_ERROR: { field: null, text: '네트워크 연결을 확인해 주세요.' },
     /* serve.py / serve.js 가 백엔드에 못 닿을 때 돌려주는 코드입니다.
        이게 보이면 프론트는 정상이고 백엔드만 안 떠 있는 것입니다. */
@@ -170,7 +172,11 @@ const API = (() => {
   };
 
   function toError(code) {
-    return { ok: false, code, ...(ERROR_MESSAGE[code] || ERROR_MESSAGE.UNKNOWN) };
+    return {
+      ok: false,
+      code,
+      ...(ERROR_MESSAGE[code] || ERROR_MESSAGE.UNKNOWN),
+    };
   }
 
   /* ---------- 공통 fetch ----------
@@ -191,8 +197,16 @@ const API = (() => {
   };
 
   async function request(path, opts = {}) {
-    const { method = 'GET', body, auth = true, statusMap, noRetry, own401, keepalive, _retried } =
-      opts;
+    const {
+      method = 'GET',
+      body,
+      auth = true,
+      statusMap,
+      noRetry,
+      own401,
+      keepalive,
+      _retried,
+    } = opts;
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), TIMEOUT);
 
@@ -201,7 +215,9 @@ const API = (() => {
         method,
         headers: {
           'Content-Type': 'application/json',
-          ...(auth && getToken() ? { Authorization: `Bearer ${getToken()}` } : {}),
+          ...(auth && getToken()
+            ? { Authorization: `Bearer ${getToken()}` }
+            : {}),
         },
         body: body ? JSON.stringify(body) : undefined,
         signal: controller.signal,
@@ -221,7 +237,14 @@ const API = (() => {
       }
 
       // 액세스 토큰이 만료된 경우 → 한 번만 재발급 후 다시 시도
-      if (res.status === 401 && auth && !noRetry && !own401 && !_retried && getRefreshToken()) {
+      if (
+        res.status === 401 &&
+        auth &&
+        !noRetry &&
+        !own401 &&
+        !_retried &&
+        getRefreshToken()
+      ) {
         const again = await refresh();
         if (again.ok) return request(path, { ...opts, _retried: true });
         return toError('SESSION_EXPIRED');
@@ -243,7 +266,10 @@ const API = (() => {
       }
 
       // data 가 있으면 data 만, 없으면 전체를 돌려줍니다
-      return { ok: true, data: json.data !== undefined && json.data !== null ? json.data : json };
+      return {
+        ok: true,
+        data: json.data !== undefined && json.data !== null ? json.data : json,
+      };
     } catch (e) {
       // 무엇 때문에 실패했는지 콘솔에 남깁니다.
       // fetch 가 던지는 오류는 CORS 차단과 서버 다운을 구분해주지 않아서,
@@ -282,7 +308,9 @@ const API = (() => {
       refreshToken,
       // 새로 주지 않으면 갖고 있던 값을 유지합니다
       onboardingToken:
-        onboardingToken !== undefined ? onboardingToken : Store.tokens().onboardingToken,
+        onboardingToken !== undefined
+          ? onboardingToken
+          : Store.tokens().onboardingToken,
     });
   }
   const getOnboardingToken = () => Store.tokens().onboardingToken || null;
@@ -311,7 +339,11 @@ const API = (() => {
       if (!res.ok) return res;
 
       // onboardingToken 은 지금 응답에 없지만, 생기면 그대로 받아 둡니다 (2.1 에서 씀)
-      setTokens(res.data.accessToken, res.data.refreshToken, res.data.onboardingToken);
+      setTokens(
+        res.data.accessToken,
+        res.data.refreshToken,
+        res.data.onboardingToken,
+      );
 
       // 이 기기의 프로필 자리를 열고, 서버 값으로 맞춥니다(1.6)
       Store.signIn(userId);
@@ -590,7 +622,9 @@ const API = (() => {
            서버가 주는 이름은 interestCategoryCodes 입니다. 예전 이름도 함께
            받아 둡니다. 아예 안 왔을 때는 빈 배열이 아니라 undefined 로 둬야
            이 기기에 저장돼 있던 관심분야가 지워지지 않습니다. */
-        interests: Array.isArray(d.interestCategoryCodes || d.interestCategories)
+        interests: Array.isArray(
+          d.interestCategoryCodes || d.interestCategories,
+        )
           ? (d.interestCategoryCodes || d.interestCategories).map((v) =>
               valueToLabel(INTEREST_OPTIONS, v),
             )
@@ -614,7 +648,8 @@ const API = (() => {
   async function updateMe(patch = {}) {
     const body = {};
     if (patch.nickname !== undefined) body.nickname = patch.nickname;
-    if (patch.profileImageUrl !== undefined) body.profileImageUrl = patch.profileImageUrl;
+    if (patch.profileImageUrl !== undefined)
+      body.profileImageUrl = patch.profileImageUrl;
 
     if (!Object.keys(body).length) return toError('INVALID_INPUT');
 
@@ -749,7 +784,8 @@ const API = (() => {
     mockCount += 1;
 
     // 입력한 내용을 그대로 판정 대상으로 삼습니다.
-    const claim = payload.text || payload.url || payload.fileName || '판정 요청';
+    const claim =
+      payload.text || payload.url || payload.fileName || '판정 요청';
 
     // 같은 문장은 늘 같은 결과가 나오도록 내용에서 등급을 계산합니다.
     const levels =
@@ -887,7 +923,10 @@ const API = (() => {
       const start = (page - 1) * size;
       return {
         ok: true,
-        data: { items: all.slice(start, start + size), hasNext: all.length > start + size },
+        data: {
+          items: all.slice(start, start + size),
+          hasNext: all.length > start + size,
+        },
       };
     }
 
@@ -903,7 +942,7 @@ const API = (() => {
       return {
         id: String(it.judgmentId),
         title: title.length > 24 ? title.slice(0, 24) + '…' : title,
-        category: it.trustLevelLabel || '기타',
+        category: CATEGORIES[it.categoryId] || '기타',
         categoryId: it.categoryId,
         status: LABEL_TO_HISTORY[it.trustLevelLabel] || 'vague',
         at: formatDate(it.createdAt),
@@ -1100,7 +1139,10 @@ const API = (() => {
   async function publishToFeed(judgmentId) {
     if (!live('feed')) {
       await delay(80);
-      return { ok: true, data: { postId: 'p_' + Date.now(), status: 'PUBLISHED' } };
+      return {
+        ok: true,
+        data: { postId: 'p_' + Date.now(), status: 'PUBLISHED' },
+      };
     }
 
     return request('/feed/posts', {
@@ -1148,7 +1190,10 @@ const API = (() => {
 
     let res = await request(`/feed/posts?${q}`);
     if (!res.ok) {
-      console.warn('[API] 전체 피드를 못 불러와 내 게시물로 대신합니다 —', res.code);
+      console.warn(
+        '[API] 전체 피드를 못 불러와 내 게시물로 대신합니다 —',
+        res.code,
+      );
       res = await request(`/feed/posts/me?${q}`);
     }
     if (!res.ok) return res;
@@ -1352,7 +1397,8 @@ const API = (() => {
 
     /* 아직 모르는 코드가 오면 대문자 코드는 감추고 기본 문구를 씁니다.
        (한글 등 이미 사람이 읽을 수 있는 값이면 그대로 보여 줍니다.) */
-    const known = typeof POINT_REASON !== 'undefined' ? POINT_REASON[code] : null;
+    const known =
+      typeof POINT_REASON !== 'undefined' ? POINT_REASON[code] : null;
     const readable = code && !/^[A-Z0-9_]+$/.test(code) ? code : '';
     const label = known || readable || (used ? '포인트 사용' : '포인트 적립');
 
@@ -1503,14 +1549,16 @@ const API = (() => {
       ok: true,
       data: {
         date,
-        items: (typeof FEEDS !== 'undefined' ? FEEDS : []).slice(0, 2).map((f) => ({
-          id: f.id,
-          category: f.category,
-          levelLabel: '판단보류',
-          title: f.title,
-          summary: f.desc,
-          archiveId: null,
-        })),
+        items: (typeof FEEDS !== 'undefined' ? FEEDS : [])
+          .slice(0, 2)
+          .map((f) => ({
+            id: f.id,
+            category: f.category,
+            levelLabel: '판단보류',
+            title: f.title,
+            summary: f.desc,
+            archiveId: null,
+          })),
       },
     };
   }
@@ -1603,7 +1651,11 @@ const API = (() => {
 
     if (!res.ok) {
       openedBriefings.delete(key); // 다음 기회에 다시 시도할 수 있게
-      console.warn('[API] 브리핑 열람 기록 실패 —', res.code, '(화면에는 영향 없음)');
+      console.warn(
+        '[API] 브리핑 열람 기록 실패 —',
+        res.code,
+        '(화면에는 영향 없음)',
+      );
     }
     return res;
   }
@@ -1651,7 +1703,9 @@ const API = (() => {
           clearToken();
           Store.signOut();
           notifySessionExpired();
-          return toError(res.status === 400 ? 'INVALID_INPUT' : 'SESSION_EXPIRED');
+          return toError(
+            res.status === 400 ? 'INVALID_INPUT' : 'SESSION_EXPIRED',
+          );
         }
 
         setTokens(json.data.accessToken, json.data.refreshToken);
@@ -1693,7 +1747,10 @@ const API = (() => {
     if (!id) return toError('SESSION_EXPIRED');
 
     if (live('login')) {
-      const res = await request('/auth/me', { method: 'DELETE', noRetry: true });
+      const res = await request('/auth/me', {
+        method: 'DELETE',
+        noRetry: true,
+      });
       if (!res.ok) return res;
 
       clearToken();

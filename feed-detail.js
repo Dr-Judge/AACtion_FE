@@ -7,7 +7,13 @@
     String(s).replace(
       /[&<>"']/g,
       (c) =>
-        ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c],
+        ({
+          '&': '&amp;',
+          '<': '&lt;',
+          '>': '&gt;',
+          '"': '&quot;',
+          "'": '&#39;',
+        })[c],
     );
 
   const fmtDate = (isoStr) => {
@@ -56,15 +62,22 @@
   const category = card.category || '';
   /* 마이페이지 목록은 이미 만들어진 date 문자열을 갖고 있습니다 */
   const date = card.date || fmtDate(card.createdAt);
-  const name = card.levelLabel || detail.verdict || (lv && lv.name) || '판정 결과';
+  const name =
+    card.levelLabel || detail.verdict || (lv && lv.name) || '판정 결과';
   const suffix =
     detail.summary ||
-    (typeof LEVEL_SUFFIX !== 'undefined' && card.result ? LEVEL_SUFFIX[card.result] : '');
+    (typeof LEVEL_SUFFIX !== 'undefined' && card.result
+      ? LEVEL_SUFFIX[card.result]
+      : '');
 
   /* 신뢰도 별점 — 5단계 점수를 그대로 별로 옮깁니다 */
   const score = lv ? lv.score : 0;
   const stars =
-    '<span class="stars"><b>' + '★'.repeat(score) + '</b>' + '★'.repeat(5 - score) + '</span>';
+    '<span class="stars"><b>' +
+    '★'.repeat(score) +
+    '</b>' +
+    '★'.repeat(5 - score) +
+    '</span>';
 
   /* 판정 정보 — 값이 있는 줄만 보여 줍니다 */
   const infoRows = [];
@@ -77,7 +90,8 @@
   if (title) infoRows.push(['주장', esc(title)]);
   if (lv) infoRows.push(['신뢰도', stars]);
   if (date) infoRows.push(['판정일', esc(date)]);
-  if (fromMock['근거 버전']) infoRows.push(['근거 버전', esc(fromMock['근거 버전'])]);
+  if (fromMock['근거 버전'])
+    infoRows.push(['근거 버전', esc(fromMock['근거 버전'])]);
 
   /* 체크포인트 — 없으면 근거 설명을 한 줄로 대신 씁니다 */
   const checks =
@@ -90,16 +104,11 @@
   box.innerHTML = `
     <section class="rc vcard">
       <div class="vcard__top">
-        <div class="vcard__thumb">
-          ${
-            card.imageUrl
-              ? `<img src="${esc(card.imageUrl)}" alt="" />`
-              : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-                   <rect x="3" y="5" width="18" height="14" rx="2.5" />
-                   <path d="m4 16 4.5-4.5 3 3 3-3L20 16" />
-                 </svg>`
-          }
-        </div>
+        ${
+          card.imageUrl
+            ? `<div class="vcard__thumb"><img src="${esc(card.imageUrl)}" alt="" /></div>`
+            : ''
+        }
 
         <div class="vcard__info">
           <h2 class="vcard__claim">${esc(title)}</h2>
@@ -157,8 +166,9 @@
         : ''
     }
 
-    <p class="detail__note">
-      이 서비스는 의료 진단·처방을 대체하지 않습니다. 증상이 있다면 전문의와 상담하세요.
+      <p class="detail__note">
+      이 서비스는 의료 진단·처방을 대체하지 않습니다.<br />
+      증상이 있다면 전문의와 상담하세요.
     </p>
   `;
 })();

@@ -49,7 +49,7 @@
 
 /* ---------- 판정 카드 ---------- */
 .cardlist {
-  padding: 14px var(--page-x) 20px;
+  padding: 14px 0 20px;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -88,9 +88,12 @@
 .pcard__title {
   margin: 10px 0 8px;
   font-size: 16px;
+  font-weight: 500;
+  line-height: 1.5;
+  letter-spacing: -0.3px;
+}
+.pcard__title-lead {
   font-weight: 800;
-  line-height: 1.4;
-  letter-spacing: -0.4px;
 }
 .pcard__desc {
   font-size: 12.5px;
@@ -145,6 +148,11 @@
   align-items: center;
   justify-content: space-between;
   font-size: 11.5px;
+  color: var(--gray-400);
+}
+.pcard__arrow {
+  font-size: 13px;
+  font-weight: 700;
   color: var(--gray-400);
 }
 .pcard__like {
@@ -358,7 +366,6 @@
   opacity: 0.5;
 }
 
-
 /* ---------- 피드 카드 상세 ---------- */
 /* 신뢰도 별점 (근거 단계 점수를 별로 보여 줍니다) */
 .stars {
@@ -371,9 +378,10 @@
   font-weight: 400;
 }
 .infotable td.is-wrap {
-  text-align: right;
+  text-align: left;
   font-weight: 700;
-  line-height: 1.55;
+  line-height: 1.6;
+  word-break: keep-all;
 }
 .detail__note {
   margin-top: 14px;

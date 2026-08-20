@@ -14,8 +14,9 @@ let slides = BRIEFINGS; // 서버에서 받아오면 교체됩니다
 let slidesFromServer = false; // 기본 배너의 id 는 서버에 없는 값이라 지표를 보내지 않습니다
 
 function renderBriefings() {
-  track.innerHTML = slides.map(
-    (b) => `
+  track.innerHTML = slides
+    .map(
+      (b) => `
     <button class="briefing__slide" data-id="${b.id}" data-href="${b.href || './briefing.html'}" type="button">
       <span class="briefing__badge">DAILY BRIEFING</span>
       <h3 class="briefing__title">${b.title}</h3>
@@ -24,11 +25,12 @@ function renderBriefings() {
       <img class="briefing__char" src="./assets/character-head.png" alt="Dr.Judge" data-fallback="character" />
     </button>
   `,
-  ).join('');
+    )
+    .join('');
 
-  dots.innerHTML = slides.map(
-    (_, i) => `<span class="${i === 0 ? 'is-active' : ''}"></span>`,
-  ).join('');
+  dots.innerHTML = slides
+    .map((_, i) => `<span class="${i === 0 ? 'is-active' : ''}"></span>`)
+    .join('');
 
   initImageFallback(track);
 
@@ -41,7 +43,8 @@ function renderBriefings() {
 function goSlide(briefingId, href) {
   /* 오픈율 지표(4.3) — 서버에서 받은 브리핑 카드일 때만 보냅니다.
      사용법·포인트·공지 카드는 서버에 없는 id 라 보내지 않습니다. */
-  const isServerBriefing = slidesFromServer && briefingId && !/^b-/.test(briefingId);
+  const isServerBriefing =
+    slidesFromServer && briefingId && !/^b-/.test(briefingId);
   if (isServerBriefing) API.markBriefingOpened(briefingId);
 
   location.href = href || './briefing.html';
@@ -61,7 +64,10 @@ function startAuto() {
   if (slides.length < 2) return; // 카드가 하나면 넘길 필요 없음
   autoTimer = setInterval(() => {
     slideIndex = (slideIndex + 1) % slides.length;
-    track.scrollTo({ left: slideIndex * track.clientWidth, behavior: 'smooth' });
+    track.scrollTo({
+      left: slideIndex * track.clientWidth,
+      behavior: 'smooth',
+    });
   }, 4500);
 }
 function stopAuto() {
@@ -87,7 +93,9 @@ const esc = (s) =>
   String(s).replace(
     /[&<>"']/g,
     (c) =>
-      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c],
+      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[
+        c
+      ],
   );
 
 function highlight(text) {
@@ -95,6 +103,17 @@ function highlight(text) {
   if (!keyword) return safe;
   const re = new RegExp(keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
   return safe.replace(re, (m) => `<span class="hl">${m}</span>`);
+}
+
+function splitLead(text) {
+  const safe = highlight(text);
+  const m = text.match(/^(.+?[.!?])\s*(.*)$/s);
+  if (!m || !m[2]) return `<span class="pcard__title-lead">${safe}</span>`;
+
+  const leadLen = m[1].length;
+  const leadHtml = highlight(text.slice(0, leadLen));
+  const restHtml = highlight(text.slice(leadLen).trim());
+  return `<span class="pcard__title-lead">${leadHtml}</span> ${restHtml}`;
 }
 
 function visibleFeeds() {
@@ -120,15 +139,10 @@ function renderFeed() {
         <span class="pcard__cat">${esc(c.category || c.levelLabel || '')}</span>
         <span class="badge-done">판정 완료</span>
       </div>
-      <h3 class="pcard__title">“${highlight(c.title || c.summary || '')}”</h3>
+    <h3 class="pcard__title">"${splitLead(c.title || c.summary || '')}"</h3>
       <div class="pcard__foot">
         <span class="pcard__author">@${esc(c.author)}</span>
-        <span class="pcard__like">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round">
-            <path d="M12 20s-7.2-4.4-7.2-9.3A4.2 4.2 0 0 1 12 8.1a4.2 4.2 0 0 1 7.2 2.6C19.2 15.6 12 20 12 20Z" />
-          </svg>
-          ${c.likes}
-        </span>
+        <span class="pcard__arrow" aria-hidden="true">›</span>
       </div>
     </li>`,
         )
@@ -180,31 +194,31 @@ searchClear.addEventListener('click', () => {
 });
 
 /* ---------- 오늘의 브리핑 ---------- */
-async function loadBriefing() {
-  const res = await API.getTodayBriefing();
-  if (!res.ok || !res.data.items.length) return; // 실패하면 기본 배너 유지
+// async function loadBriefing() {
+//   const res = await API.getTodayBriefing();
+//   if (!res.ok || !res.data.items.length) return;
 
-  /* 첫 장(브리핑 카드)의 문구만 오늘 받은 내용으로 바꿉니다.
-     나머지 장은 사용법·포인트·공지 안내라 그대로 둡니다. */
-  const top = res.data.items[0];
-  slides = BRIEFINGS.map((s) =>
-    s.live
-      ? {
-          ...s,
-          id: top.id || s.id,
-          title: top.title || s.title,
-          desc: top.summary || top.levelLabel || s.desc,
-        }
-      : s,
-  );
-  slidesFromServer = true;
-  renderBriefings();
-  startAuto();
-}
+//   /* 첫 장(브리핑 카드)의 문구만 오늘 받은 내용으로 바꿉니다.
+//      나머지 장은 사용법·포인트·공지 안내라 그대로 둡니다. */
+//   const top = res.data.items[0];
+//   slides = BRIEFINGS.map((s) =>
+//     s.live
+//       ? {
+//           ...s,
+//           id: top.id || s.id,
+//           title: top.title || s.title,
+//           desc: top.summary || top.levelLabel || s.desc,
+//         }
+//       : s,
+//   );
+//   slidesFromServer = true;
+//   renderBriefings();
+//   startAuto();
+// }
 
 /* ---------- init ---------- */
 renderBriefings();
 startAuto();
-loadBriefing();
+// loadBriefing();
 loadFeed();
 window.addEventListener('resize', syncDots);
