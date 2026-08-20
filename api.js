@@ -550,30 +550,27 @@ const API = (() => {
    * 로그인 직후에 한 번 불러 이 기기의 프로필을 서버 값으로 맞춥니다.
    * 그래야 다른 기기에서 봐도 닉네임·관심분야·포인트가 같습니다.
    */
-  async function getMe(opts = {}) {
+    async function getMe(opts = {}) {
     if (!live('profile')) {
       await delay(60);
-         const d = res.data;
-    return {
-      ok: true,
-      data: {
-        userId: d.userId,
-        nickname: d.nickname || '',
-        profileImageUrl: d.profileImageUrl || null,
-        pointBalance: Number(d.pointBalance) || 0,
-        email: d.email || null,
-        interests: Array.isArray(d.interestCategoryCodes)
-          ? d.interestCategoryCodes.map((v) => valueToLabel(INTEREST_OPTIONS, v))
-          : undefined,
-        ageRange: ageLabelOf(d.ageGroup),
-        gender: d.gender ? valueToLabel(GENDER_OPTIONS, d.gender) : null,
-        createdAt: d.createdAt || null,
-      },
-    };
+      const u = Store.current();
+      if (!u) return toError('SESSION_EXPIRED');
+      return {
+        ok: true,
+        data: {
+          userId: u.profile.userId,
+          nickname: u.profile.nickname,
+          profileImageUrl: u.profile.profileImageUrl || null,
+          pointBalance: Store.totalPoint(),
+          email: u.profile.email || null,
+          interests: u.profile.interests || [],
+          ageRange: u.profile.ageRange || null,
+          gender: u.profile.gender || null,
+          createdAt: u.profile.createdAt || null,
+        },
+      };
     }
 
-    /* quiet 로 부르면 401 이 와도 세션을 건드리지 않습니다.
-       로그인 직후 프로필을 맞추는 용도라, 이것 때문에 로그아웃되면 안 됩니다. */
     const res = await request('/users/me', opts.quiet ? { own401: true } : {});
     if (!res.ok) return res;
 
@@ -585,13 +582,9 @@ const API = (() => {
         nickname: d.nickname || '',
         profileImageUrl: d.profileImageUrl || null,
         pointBalance: Number(d.pointBalance) || 0,
-        /* 서버 enum → 화면 문구.
-           지금 서버의 1.6 응답에는 interestCategories 가 아예 없습니다.
-           없는 것을 빈 배열로 만들면 화면에 저장돼 있던 관심분야가 지워지므로
-           (관심분야 변경 화면이 매번 빈 상태로 열리는 원인이었습니다)
-           안 왔을 때는 undefined 로 두어 '건드리지 않음'이 되게 합니다. */
-        interests: Array.isArray(d.interestCategories)
-          ? d.interestCategories.map((v) => valueToLabel(INTEREST_OPTIONS, v))
+        email: d.email || null,
+       interests: Array.isArray(d.interestCategoryCodes)
+          ? d.interestCategoryCodes.map((v) => valueToLabel(INTEREST_OPTIONS, v))
           : undefined,
         ageRange: ageLabelOf(d.ageGroup),
         gender: d.gender ? valueToLabel(GENDER_OPTIONS, d.gender) : null,
@@ -599,7 +592,7 @@ const API = (() => {
       },
     };
   }
-
+ 
   /**
    * 내 정보 수정 (1.7)
    *   PATCH /api/users/me/nickname
