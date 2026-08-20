@@ -51,7 +51,11 @@ const API = (() => {
         ? 'http://' + location.hostname + ':8080/api'
         : '/api';
 
-  const TIMEOUT = 8000;
+  /* 판정 요청(특히 이미지 OCR)이 Clova 응답을 최대 10초까지 기다리도록 백엔드가
+     설계돼 있어서(ClovaOcrClient READ_TIMEOUT_MS=10_000), 8초로는 백엔드가 정상
+     처리 중인데도 프론트가 먼저 포기해버리는 경우가 있었다(운영에서 durationMs
+     9852로 성공한 요청을 프론트가 8초 만에 시간 초과 처리한 사례 확인). */
+  const TIMEOUT = 15000;
 
   /* ---------- 어떤 기능을 실제 서버에 붙일지 ----------
      서버에 만들어진 것부터 하나씩 true 로 바꾸면 됩니다.
