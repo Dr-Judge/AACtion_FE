@@ -99,6 +99,12 @@
   font-size: 12.5px;
   color: var(--gray-500);
   line-height: 1.55;
+  /* 근거 요약이 길어도 카드가 한눈에 읽히도록 3줄까지만 보여 줍니다 */
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 /* 판정 결과 줄 */

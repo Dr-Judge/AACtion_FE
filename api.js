@@ -942,12 +942,16 @@ const API = (() => {
 
     const items = (res.data.items || []).map((it) => {
       const saved = Store.getResult(String(it.judgmentId));
-      const title = (saved && saved.claim) || `판정 #${it.judgmentId}`;
+      /* 서버가 title 을 내려 주므로 그걸 먼저 씁니다(예전에는 없어서 이 기기에 저장된
+         문장으로 때웠고, 다른 기기·시드 이력은 '판정 #번호' 로만 보였습니다). */
+      const title =
+        it.title || (saved && saved.claim) || `판정 #${it.judgmentId}`;
       return {
         id: String(it.judgmentId),
         title: title.length > 24 ? title.slice(0, 24) + '…' : title,
         category: CATEGORIES[it.categoryId] || '기타',
         categoryId: it.categoryId,
+        levelLabel: it.trustLevelLabel || '',
         status: LABEL_TO_HISTORY[it.trustLevelLabel] || 'vague',
         at: formatDate(it.createdAt),
       };
@@ -1178,7 +1182,10 @@ const API = (() => {
   async function getFeedPosts(opts = {}) {
     const sort = opts.sort === 'popular' ? 'popular' : 'recent';
     const page = opts.page || 1;
-    const size = opts.size || 20;
+    /* 서버가 정렬(sort)을 지원하지 않아 이 화면에서 정렬합니다. 한 번에 적게 받으면
+       '인기순'이 받아 온 몇 건 안에서만 정렬돼 좋아요가 많은 글이 빠지므로,
+       서버 최대치(50)까지 한꺼번에 받습니다. */
+    const size = opts.size || 50;
 
     if (!live('feed')) {
       await delay(80);
@@ -1226,7 +1233,9 @@ const API = (() => {
             id: it.postId,
             author: (it.author && it.author.nickname) || '익명',
             authorId: it.author && it.author.userId,
-            category: it.category || it.categoryName || local.category || '',
+            category: categoryLabel(
+              it.category || it.categoryName || local.category || '',
+            ),
             title,
             /* title 이 summary 로 대체된 경우엔 설명을 비워 둡니다 (같은 문장 두 번 노출 방지) */
             desc: title === it.summary ? '' : it.summary || '',
@@ -1326,7 +1335,9 @@ const API = (() => {
                예전에는 없어서 이 기기에 저장해 둔 값으로 때웠는데,
                그 탓에 제목 자리에 요약이, 분야 자리에 신뢰도 라벨이 나왔습니다. */
             title: it.title || local.title || it.summary || '',
-            category: it.category || local.category || it.trustLevelLabel || '',
+            category: categoryLabel(
+              it.category || local.category || it.trustLevelLabel || '',
+            ),
             date: formatDate(it.createdAt).split(' · ')[0],
             result: it.trustLevelLabel || '',
             likes: it.likeCount || 0,

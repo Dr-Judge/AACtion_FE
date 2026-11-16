@@ -257,7 +257,7 @@ const LEVEL_SUFFIX = {
   expert: '전문가 의견 확인',
   hold: '근거 엇갈림',
   lack: '임상적 근거 없음',
-  refuted: '반박 근거 있음',
+  refuted: '주장과 어긋나는 근거', // 라벨('반박 근거 있음')과 같은 말이 괄호로 반복되지 않게
 };
 
 const levelOf = (key) => EVIDENCE_LEVELS.find((l) => l.key === key) || null;
@@ -363,6 +363,16 @@ const labelToValue = (list, label) =>
 const valueToLabel = (list, value) =>
   (list.find((o) => o.value === value) || {}).label || value;
 
+/* 서버 카테고리 코드 → 화면 문구 (피드 카드의 분야 표시에 씁니다) */
+const CATEGORY_CODE_LABEL = {
+  NUTRITION: '영양제·건강기능식품',
+  DIET: '다이어트·체중관리',
+  DISEASE_CARE: '질환·증상관리',
+  COSMETICS: '화장품',
+  PROCEDURE_SKINCARE: '시술·피부관리',
+};
+const categoryLabel = (v) => CATEGORY_CODE_LABEL[v] || v;
+
 /* ============================================
    포인트 사유 코드 → 화면 문구 (7.2)
    확인된 값: DAILY_LOGIN, FEED_POST
@@ -370,6 +380,11 @@ const valueToLabel = (list, value) =>
    '포인트 적립 / 포인트 사용'으로 안전하게 표시됩니다.
    ============================================ */
 const POINT_REASON = {
+  /* 서버(PointReason enum) 실제 코드 */
+  SIGNUP_BONUS: '가입 축하 포인트',
+  JUDGMENT_COMPLETE: '판정 완료',
+  FEED_SHARE: '카드 공유',
+  CORRECTION_PARTICIPATE: '정정 참여',
   DAILY_LOGIN: '매일 접속',
   FEED_POST: '공유 카드 게시',
   SIGNUP: '가입 축하',

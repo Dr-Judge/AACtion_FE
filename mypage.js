@@ -170,7 +170,7 @@
         </span>
         <span class="hitem__status is-${h.status}">
           <b>${s.mark} ${s.label}</b>
-          <span>${s.hint}</span>
+          <span>${esc(h.levelLabel || s.hint)}</span>
         </span>
       </li>`;
           })
@@ -399,6 +399,17 @@
   const wBox = document.getElementById('withdrawConfirm');
   const wAlert = document.getElementById('withdrawAlert');
   const wOk = document.getElementById('withdrawOk');
+
+  /* 학술제 체험 계정(demo)은 여러 방문자가 함께 쓰므로, 누군가 탈퇴해 버리면 뒤 사람이
+     체험하기를 못 씁니다. 이 계정일 때만 탈퇴 메뉴를 숨깁니다. */
+  try {
+    const me = Store.current && Store.current();
+    if (me && me.profile && me.profile.userId === 'demo') {
+      document.getElementById('withdrawBtn').hidden = true;
+    }
+  } catch (e) {
+    /* 확인하지 못해도 화면은 그대로 둡니다 */
+  }
 
   document.getElementById('withdrawBtn').addEventListener('click', () => {
     closeMenu();

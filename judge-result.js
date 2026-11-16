@@ -49,11 +49,33 @@
   const id = new URLSearchParams(location.search).get('id');
 
   /* ---------- 판정 중 안내 ---------- */
+  /* AI 판정은 6~12초 걸립니다. 스피너만 돌리면 길게 느껴지므로, 결과 화면의 구성
+     (신뢰도 → 상업적 의도 → 구매 기준 카드)과 같은 순서로 안내 문구를 바꿔 보여 줍니다. */
+  const WAIT_STEPS = [
+    '근거 자료를 찾고 있어요…',
+    '신뢰도를 판정하고 있어요…',
+    '상업적 의도를 살펴보고 있어요…',
+    '확인 기준 카드를 만들고 있어요…',
+  ];
+  let waitTimer = null;
+
   function showWaiting(text) {
-    document.getElementById('claimText').textContent = text || '판정하고 있어요…';
+    const el = document.getElementById('claimText');
     box.classList.add('is-waiting');
+    clearInterval(waitTimer);
+    if (text) {
+      el.textContent = text; // 호출한 쪽이 문구를 정해 준 경우는 그대로 씁니다
+      return;
+    }
+    let step = 0;
+    el.textContent = WAIT_STEPS[0];
+    waitTimer = setInterval(() => {
+      step = Math.min(step + 1, WAIT_STEPS.length - 1); // 마지막 문구에서 멈춥니다
+      el.textContent = WAIT_STEPS[step];
+    }, 2600);
   }
   function hideWaiting() {
+    clearInterval(waitTimer);
     box.classList.remove('is-waiting');
   }
 
