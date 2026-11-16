@@ -19,7 +19,9 @@ const path = require('path');
 
 const PORT = Number(process.env.PORT || 3000);
 const API = process.env.API || 'http://127.0.0.1:8080'; // 백엔드 주소
-const ROOT = path.join(__dirname, 'dr.judge'); // 화면 파일이 있는 폴더
+const ROOT = fs.existsSync(path.join(__dirname, 'dr.judge'))
+  ? path.join(__dirname, 'dr.judge') // 화면 파일이 있는 폴더
+  : __dirname; // 레포 루트에 바로 들어 있는 경우
 
 const TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -54,7 +56,10 @@ const server = http.createServer((req, res) => {
         port: target.port || 80,
         path: req.url,
         method: req.method,
-        headers: { ...req.headers, host: target.host },
+        /* 화면과 /api 를 같은 주소로 내주는 서버라 CORS 가 필요 없습니다.
+           브라우저가 붙인 Origin 을 그대로 넘기면 백엔드 허용 목록(localhost:3000 등)에
+           없는 포트(예: 3100)는 403 이 되므로 떼어서 보냅니다. */
+        headers: (({ origin, referer, ...h }) => ({ ...h, host: target.host }))(req.headers),
       },
       (up) => {
         res.writeHead(up.statusCode, up.headers);
